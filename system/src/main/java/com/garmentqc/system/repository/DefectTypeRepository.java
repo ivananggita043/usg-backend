@@ -40,4 +40,8 @@ public interface DefectTypeRepository extends JpaRepository<DefectType, String> 
 
         boolean existsBySectionAndCategoryAndDefectAreaAndNameAndIdNot(Section section, DefectCategory category,
                         DefectArea defectArea, String name, String id);
+
+        List<DefectType> findByDefectArea_IdAndNameContainingIgnoreCaseAndActiveTrue(String defectAreaId, String name);
+
+        List<DefectType> findByDefectAreaAndActiveTrueOrderByNameAsc(DefectArea defectArea);
 }

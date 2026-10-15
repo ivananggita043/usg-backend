@@ -30,11 +30,8 @@ public class UserController {
     private final UserService userService;
 
     @PostMapping
-    public ResponseEntity<CreateUserResponse> createUser(
-            @Valid @RequestBody CreateUserRequest request) {
-
+    public ResponseEntity<CreateUserResponse> createUser(@Valid @RequestBody CreateUserRequest request) {
         CreateUserResponse response = userService.registerUser(request);
-
         return ResponseEntity
                 .status(HttpStatus.CREATED)
                 .body(response);
@@ -53,8 +50,7 @@ public class UserController {
     @PutMapping("/{id}")
     public ResponseEntity<CreateUserResponse> updateUser(@PathVariable String id,
             @Valid @RequestBody CreateUserRequest request) {
-        return ResponseEntity.ok(
-                userService.updateUser(id, request));
+        return ResponseEntity.ok(userService.updateUser(id, request));
     }
 
     @DeleteMapping("/{id}")
@@ -65,8 +61,7 @@ public class UserController {
 
     @PatchMapping("/{id}/status")
     public ResponseEntity<CreateUserResponse> updateUserStatus(@PathVariable String id, @RequestParam boolean active) {
-        return ResponseEntity.ok(
-                userService.updateUserStatus(id, active));
+        return ResponseEntity.ok(userService.updateUserStatus(id, active));
     }
 
 }

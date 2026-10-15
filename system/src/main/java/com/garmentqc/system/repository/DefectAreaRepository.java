@@ -15,4 +15,6 @@ public interface DefectAreaRepository extends JpaRepository<DefectArea, String> 
     boolean existsByName(String name);
 
     boolean existsByNameAndIdNot(String name, String id);
+
+    List<DefectArea> findByNameContainingIgnoreCaseAndActiveTrueOrderByNameAsc(String name);
 }

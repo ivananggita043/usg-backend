@@ -26,8 +26,7 @@ public class CreateUserRequest {
 
     @NotNull(message = "Role wajib dipilih")
     private Role role;
-
-    @NotNull(message = "Section wajib dipilih")
+    
     private Section section;
 
     @NotBlank(message = "Password wajib diisi")

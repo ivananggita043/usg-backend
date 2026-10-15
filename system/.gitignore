@@ -33,5 +33,5 @@ build/
 .vscode/
 
 ### Environment ###
-application-local.yml
+application-supabase.yml
 .env

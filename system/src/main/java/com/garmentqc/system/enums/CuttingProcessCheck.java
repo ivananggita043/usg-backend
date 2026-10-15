@@ -1,7 +1,6 @@
 package com.garmentqc.system.enums;
 
 public enum CuttingProcessCheck {
-
     MARKER,
     FABRIC,
     SPREADING,

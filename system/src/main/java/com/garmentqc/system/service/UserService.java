@@ -35,22 +35,17 @@ public class UserService {
         private final PasswordEncoder passwordEncoder;
 
         public List<CreateUserResponse> getAllUsers() {
-
                 User currentUser = getCurrentUser();
-
                 List<User> users;
-
                 if (currentUser.getRole() == Role.SUPER_ADMIN) {
                         users = userRepository.findAll();
 
                 } else if (currentUser.getRole() == Role.ADMIN) {
-
                         users = userRepository.findBySection(
                                         currentUser.getSection());
 
                 } else {
-                        throw new BadRequestException(
-                                        "Anda tidak memiliki akses untuk melihat daftar user");
+                        throw new BadRequestException("Anda tidak memiliki akses untuk melihat daftar user");
                 }
 
                 return users.stream()
@@ -67,15 +62,11 @@ public class UserService {
         }
 
         public CreateUserResponse getUserById(String id) {
-
                 User currentUser = getCurrentUser();
-
                 User user = userRepository.findById(id)
-                                .orElseThrow(() -> new ResourceNotFoundException(
-                                                "User tidak ditemukan"));
+                                .orElseThrow(() -> new ResourceNotFoundException("User tidak ditemukan"));
 
                 validateUserAccess(currentUser, user);
-
                 List<Line> lines = userLineRepository
                                 .findByUser(user)
                                 .stream()
@@ -117,8 +108,7 @@ public class UserService {
                 } else if (role == Role.ADMIN) {
 
                         if (request.getSection() == null) {
-                                throw new BadRequestException(
-                                                "Section wajib diisi untuk ADMIN");
+                                throw new BadRequestException("Section wajib diisi untuk ADMIN");
                         }
 
                         user.setSection(request.getSection());
@@ -127,19 +117,16 @@ public class UserService {
                 } else if (role == Role.USER) {
 
                         if (lines.isEmpty()) {
-                                throw new BadRequestException(
-                                                "Pilih minimal satu line untuk akun QC");
+                                throw new BadRequestException("Pilih minimal satu line untuk akun QC");
                         }
 
                         validateActiveLines(lines);
                         validateSameSection(lines);
-
                         Section section = lines.get(0).getSection();
 
                         if (request.getSection() != null
                                         && request.getSection() != section) {
-                                throw new BadRequestException(
-                                                "Section tidak sesuai dengan section line");
+                                throw new BadRequestException("Section tidak sesuai dengan section line");
                         }
 
                         user.setSection(section);
@@ -152,15 +139,10 @@ public class UserService {
         }
 
         @Transactional
-        public CreateUserResponse updateUser(
-                        String id,
-                        CreateUserRequest request) {
-
+        public CreateUserResponse updateUser(String id, CreateUserRequest request) {
                 User currentUser = getCurrentUser();
-
                 User user = userRepository.findById(id)
-                                .orElseThrow(() -> new ResourceNotFoundException(
-                                                "User tidak ditemukan"));
+                                .orElseThrow(() -> new ResourceNotFoundException("User tidak ditemukan"));
 
                 validateUserAccess(currentUser, user);
 
@@ -171,14 +153,11 @@ public class UserService {
                 if (currentUser.getRole() == Role.ADMIN) {
 
                         if (request.getRole() == Role.SUPER_ADMIN) {
-                                throw new BadRequestException(
-                                                "ADMIN tidak dapat mengubah user menjadi SUPER ADMIN");
+                                throw new BadRequestException("ADMIN tidak dapat mengubah user menjadi SUPER ADMIN");
                         }
 
-                        if (request.getSection() != null
-                                        && request.getSection() != currentUser.getSection()) {
-                                throw new BadRequestException(
-                                                "ADMIN hanya dapat mengelola user pada section-nya");
+                        if (request.getSection() != null && request.getSection() != currentUser.getSection()) {
+                                throw new BadRequestException("ADMIN hanya dapat mengelola user pada section-nya");
                         }
                 }
 
@@ -192,28 +171,22 @@ public class UserService {
                 user.setNik(request.getNik());
                 user.setRole(request.getRole());
 
-                if (request.getPassword() != null
-                                && !request.getPassword().isBlank()) {
-                        user.setPassword(
-                                        passwordEncoder.encode(request.getPassword()));
+                if (request.getPassword() != null && !request.getPassword().isBlank()) {
+                        user.setPassword(passwordEncoder.encode(request.getPassword()));
                 }
 
                 List<Line> lines = getLinesFromRequest(request.getLineIds());
-
                 if (request.getRole() == Role.SUPER_ADMIN) {
-
                         user.setSection(null);
                         lines = List.of();
 
                 } else if (request.getRole() == Role.ADMIN) {
-
                         Section section = currentUser.getRole() == Role.ADMIN
                                         ? currentUser.getSection()
                                         : request.getSection();
 
                         if (section == null) {
-                                throw new BadRequestException(
-                                                "Section wajib diisi untuk ADMIN");
+                                throw new BadRequestException("Section wajib diisi untuk ADMIN");
                         }
 
                         user.setSection(section);
@@ -222,8 +195,7 @@ public class UserService {
                 } else if (request.getRole() == Role.USER) {
 
                         if (lines.isEmpty()) {
-                                throw new BadRequestException(
-                                                "User QC harus memiliki minimal satu line");
+                                throw new BadRequestException("User QC harus memiliki minimal satu line");
                         }
 
                         validateActiveLines(lines);
@@ -232,10 +204,8 @@ public class UserService {
 
                         Section lineSection = lines.get(0).getSection();
 
-                        if (request.getSection() != null
-                                        && request.getSection() != lineSection) {
-                                throw new BadRequestException(
-                                                "Section tidak sesuai dengan section line");
+                        if (request.getSection() != null && request.getSection() != lineSection) {
+                                throw new BadRequestException("Section tidak sesuai dengan section line");
                         }
 
                         user.setSection(lineSection);
@@ -253,18 +223,14 @@ public class UserService {
         }
 
         @Transactional
-        public CreateUserResponse updateUserStatus(
-                        String id,
-                        boolean active) {
+        public CreateUserResponse updateUserStatus(String id, boolean active) {
 
                 User currentUser = getCurrentUser();
-
                 User user = userRepository.findById(id)
                                 .orElseThrow(() -> new ResourceNotFoundException(
                                                 "User tidak ditemukan"));
 
                 validateUserAccess(currentUser, user);
-
                 List<Line> lines = userLineRepository
                                 .findByUser(user)
                                 .stream()
@@ -272,27 +238,19 @@ public class UserService {
                                 .toList();
 
                 user.setActive(active);
-
                 User savedUser = userRepository.save(user);
-
                 return toResponse(savedUser, lines);
         }
 
         @Transactional
         public void deleteUser(String id) {
-
                 User currentUser = getCurrentUser();
-
                 User user = userRepository.findById(id)
-                                .orElseThrow(() -> new ResourceNotFoundException(
-                                                "User tidak ditemukan"));
+                                .orElseThrow(() -> new ResourceNotFoundException("User tidak ditemukan"));
 
                 validateUserAccess(currentUser, user);
-
-                if (currentUser.getRole() == Role.ADMIN
-                                && user.getRole() == Role.SUPER_ADMIN) {
-                        throw new BadRequestException(
-                                        "ADMIN tidak dapat menghapus SUPER ADMIN");
+                if (currentUser.getRole() == Role.ADMIN && user.getRole() == Role.SUPER_ADMIN) {
+                        throw new BadRequestException("ADMIN tidak dapat menghapus SUPER ADMIN");
                 }
 
                 userLineRepository.deleteByUser(user);
@@ -300,16 +258,13 @@ public class UserService {
         }
 
         private User getCurrentUser() {
-
                 Authentication authentication = SecurityContextHolder
                                 .getContext()
                                 .getAuthentication();
 
-                if (authentication == null
-                                || !authentication.isAuthenticated()
+                if (authentication == null || !authentication.isAuthenticated()
                                 || authentication instanceof org.springframework.security.authentication.AnonymousAuthenticationToken) {
-                        throw new BadRequestException(
-                                        "User belum terautentikasi. Silakan login kembali.");
+                        throw new BadRequestException("User belum terautentikasi. Silakan login kembali.");
                 }
 
                 String username;
@@ -324,10 +279,8 @@ public class UserService {
                         username = authentication.getName();
                 }
 
-                if (username == null || username.isBlank()
-                                || "anonymousUser".equals(username)) {
-                        throw new BadRequestException(
-                                        "User belum terautentikasi. Silakan login kembali.");
+                if (username == null || username.isBlank() || "anonymousUser".equals(username)) {
+                        throw new BadRequestException("User belum terautentikasi. Silakan login kembali.");
                 }
 
                 return userRepository.findByUsername(username)
@@ -335,10 +288,7 @@ public class UserService {
                                                 "Data user yang login tidak ditemukan"));
         }
 
-        private void validateUserAccess(
-                        User currentUser,
-                        User targetUser) {
-
+        private void validateUserAccess(User currentUser, User targetUser) {
                 if (currentUser.getRole() == Role.SUPER_ADMIN) {
                         return;
                 }
@@ -346,29 +296,24 @@ public class UserService {
                 if (currentUser.getRole() == Role.ADMIN) {
 
                         if (currentUser.getSection() == null) {
-                                throw new BadRequestException(
-                                                "Section ADMIN belum ditentukan");
+                                throw new BadRequestException("Section ADMIN belum ditentukan");
                         }
 
                         if (targetUser.getSection() != currentUser.getSection()) {
-                                throw new BadRequestException(
-                                                "Anda hanya dapat mengelola user pada section Anda");
+                                throw new BadRequestException("Anda hanya dapat mengelola user pada section Anda");
                         }
 
                         if (targetUser.getRole() == Role.SUPER_ADMIN) {
-                                throw new BadRequestException(
-                                                "ADMIN tidak memiliki akses ke SUPER ADMIN");
+                                throw new BadRequestException("ADMIN tidak memiliki akses ke SUPER ADMIN");
                         }
 
                         return;
                 }
 
-                throw new BadRequestException(
-                                "Anda tidak memiliki akses");
+                throw new BadRequestException("Anda tidak memiliki akses");
         }
 
         private List<Line> getLinesFromRequest(List<String> lineIds) {
-
                 if (lineIds == null || lineIds.isEmpty()) {
                         return List.of();
                 }
@@ -376,17 +321,14 @@ public class UserService {
                 List<Line> lines = lineRepository.findAllById(lineIds);
 
                 if (lines.size() != lineIds.size()) {
-                        throw new ResourceNotFoundException(
-                                        "Line yang dipilih tidak ditemukan");
+                        throw new ResourceNotFoundException("Line yang dipilih tidak ditemukan");
                 }
 
                 return lines;
         }
 
         public CreateUserResponse getCurrentUserProfile() {
-
                 User currentUser = getCurrentUser();
-
                 List<Line> lines = userLineRepository
                                 .findByUser(currentUser)
                                 .stream()
@@ -397,37 +339,29 @@ public class UserService {
         }
 
         private void validateActiveLines(List<Line> lines) {
-
                 boolean hasInactiveLine = lines.stream()
                                 .anyMatch(line -> !line.isActive());
 
                 if (hasInactiveLine) {
-                        throw new BadRequestException(
-                                        "Line yang dipilih sudah tidak aktif");
+                        throw new BadRequestException("Line yang dipilih sudah tidak aktif");
                 }
         }
 
         private void validateSameSection(List<Line> lines) {
-
                 if (lines.isEmpty()) {
                         return;
                 }
 
                 Section section = lines.get(0).getSection();
-
                 boolean differentSection = lines.stream()
                                 .anyMatch(line -> line.getSection() != section);
 
                 if (differentSection) {
-                        throw new BadRequestException(
-                                        "Semua line harus berasal dari section yang sama");
+                        throw new BadRequestException("Semua line harus berasal dari section yang sama");
                 }
         }
 
-        private void validateAdminLines(
-                        User currentUser,
-                        List<Line> lines) {
-
+        private void validateAdminLines(User currentUser, List<Line> lines) {
                 if (currentUser.getRole() == Role.SUPER_ADMIN) {
                         return;
                 }
@@ -435,22 +369,19 @@ public class UserService {
                 if (currentUser.getRole() == Role.ADMIN) {
 
                         if (currentUser.getSection() == null) {
-                                throw new BadRequestException(
-                                                "Section ADMIN belum ditentukan");
+                                throw new BadRequestException("Section ADMIN belum ditentukan");
                         }
 
                         boolean differentSection = lines.stream()
                                         .anyMatch(line -> line.getSection() != currentUser.getSection());
 
                         if (differentSection) {
-                                throw new BadRequestException(
-                                                "Anda hanya dapat menggunakan line dari section Anda");
+                                throw new BadRequestException("Anda hanya dapat menggunakan line dari section Anda");
                         }
                 }
         }
 
         private void saveUserLines(User user, List<Line> lines) {
-
                 for (Line line : lines) {
 
                         UserLine userLine = new UserLine();
@@ -461,10 +392,7 @@ public class UserService {
                 }
         }
 
-        private CreateUserResponse toResponse(
-                        User user,
-                        List<Line> lines) {
-
+        private CreateUserResponse toResponse(User user, List<Line> lines) {
                 List<String> lineIds = lines.stream()
                                 .map(Line::getId)
                                 .toList();

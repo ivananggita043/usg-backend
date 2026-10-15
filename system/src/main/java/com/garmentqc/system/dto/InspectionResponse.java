@@ -32,6 +32,14 @@ public class InspectionResponse {
 
     private String comment;
 
+    private String inspectionTimeSlot;
+
+    private String handfeel;
+
+    private String grade;
+
+    private String process;
+
     private List<DefectItem> defects;
 
     private String submittedById;

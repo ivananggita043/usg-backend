@@ -1,14 +1,18 @@
+
 package com.garmentqc.system.service;
 
 import java.util.List;
 
 import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.security.authentication.DisabledException;
+import org.springframework.security.authentication.LockedException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.AuthenticationException;
 import org.springframework.stereotype.Service;
 
 import com.garmentqc.system.dto.LoginRequest;
 import com.garmentqc.system.dto.LoginResponse;
-import com.garmentqc.system.exception.ResourceNotFoundException;
 import com.garmentqc.system.model.User;
 import com.garmentqc.system.model.UserLine;
 import com.garmentqc.system.repository.UserLineRepository;
@@ -28,15 +32,35 @@ public class AuthService {
 
         public LoginResponse login(LoginRequest request) {
 
-                authenticationManager.authenticate(
-                                new UsernamePasswordAuthenticationToken(
-                                                request.getUsername(),
-                                                request.getPassword()));
+                try {
+                        authenticationManager.authenticate(
+                                        new UsernamePasswordAuthenticationToken(
+                                                        request.getUsername(),
+                                                        request.getPassword()));
+
+                } catch (BadCredentialsException ex) {
+                        throw new BadCredentialsException(
+                                        "Username atau password salah");
+                } catch (DisabledException ex) {
+                        throw new DisabledException(
+                                        "Akun tidak aktif. Hubungi administrator.");
+                } catch (LockedException ex) {
+                        throw new LockedException(
+                                        "Akun terkunci. Hubungi administrator.");
+                } catch (AuthenticationException ex) {
+                        throw new BadCredentialsException(
+                                        "Login gagal. Periksa username dan password.");
+                }
 
                 User user = userRepository
                                 .findByUsername(request.getUsername())
-                                .orElseThrow(() -> new ResourceNotFoundException(
-                                                "User tidak ditemukan"));
+                                .orElseThrow(() -> new BadCredentialsException(
+                                                "Username atau password salah"));
+
+                if (!user.isActive()) {
+                        throw new DisabledException(
+                                        "Akun tidak aktif. Hubungi administrator.");
+                }
 
                 String token = jwtService.generateToken(user);
                 List<String> lineIds = userLineRepository

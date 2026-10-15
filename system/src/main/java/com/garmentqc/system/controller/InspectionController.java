@@ -7,12 +7,16 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 
 import com.garmentqc.system.dto.InspectionRequest;
 import com.garmentqc.system.dto.InspectionResponse;
+import com.garmentqc.system.model.DefectArea;
+import com.garmentqc.system.model.DefectType;
 import com.garmentqc.system.service.InspectionService;
 
 import jakarta.validation.Valid;
@@ -41,5 +45,16 @@ public class InspectionController {
     @GetMapping("/{id}")
     public InspectionResponse getById(@PathVariable String id) {
         return inspectionService.getById(id);
+    }
+
+    @GetMapping("/defect/types/search")
+    public ResponseEntity<List<DefectType>> searchDefectTypes(@RequestParam String defectAreaId,
+            @RequestParam(required = false) String keyword) {
+        return ResponseEntity.ok(inspectionService.searchDefectTypes(defectAreaId, keyword));
+    }
+
+    @GetMapping("/defect/areas/search")
+    public ResponseEntity<List<DefectArea>> searchDefectAreas(@RequestParam(required = false) String keyword) {
+        return ResponseEntity.ok(inspectionService.searchDefectAreas(keyword));
     }
 }

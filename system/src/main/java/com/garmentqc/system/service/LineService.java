@@ -23,12 +23,7 @@ public class LineService {
     private final UserLineRepository userLineRepository;
 
     public Line createLine(LineRequest request) {
-
-        validateDuplicate(
-                request.getName(),
-                request.getSection(),
-                null);
-
+        validateDuplicate(request.getName(), request.getSection(), null);
         Line line = new Line();
         line.setName(request.getName());
         line.setSection(request.getSection());
@@ -46,14 +41,9 @@ public class LineService {
     }
 
     public Line updateLine(String id, LineRequest request) {
-
         Line line = findLine(id);
 
-        validateDuplicate(
-                request.getName(),
-                request.getSection(),
-                id);
-
+        validateDuplicate(request.getName(), request.getSection(), id);
         line.setName(request.getName());
         line.setSection(request.getSection());
 
@@ -61,7 +51,6 @@ public class LineService {
     }
 
     public Line updateLineStatus(String id, boolean active) {
-
         Line line = findLine(id);
         line.setActive(active);
 
@@ -70,7 +59,6 @@ public class LineService {
 
     @Transactional
     public void deleteLine(String id) {
-
         Line line = findLine(id);
 
         if (userLineRepository.existsByLine(line)) {
@@ -83,17 +71,11 @@ public class LineService {
 
     private Line findLine(String id) {
         return lineRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException(
-                        "Line dengan ID " + id + " tidak ditemukan"));
+                .orElseThrow(() -> new ResourceNotFoundException("Line dengan ID " + id + " tidak ditemukan"));
     }
 
-    private void validateDuplicate(
-            String name,
-            Section section,
-            String currentId) {
-
+    private void validateDuplicate(String name, Section section, String currentId) {
         boolean exists;
-
         if (currentId == null) {
             exists = lineRepository.existsByNameAndSection(
                     name, section);
@@ -103,8 +85,7 @@ public class LineService {
         }
 
         if (exists) {
-            throw new BadRequestException(
-                    "Nama line sudah digunakan pada section tersebut");
+            throw new BadRequestException("Nama line sudah digunakan pada section tersebut");
         }
 
     }

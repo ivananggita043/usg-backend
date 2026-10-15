@@ -27,9 +27,7 @@ public class LineController {
     private final LineService lineService;
 
     @PostMapping
-    public ResponseEntity<Line> createLine(
-            @Valid @RequestBody LineRequest request) {
-
+    public ResponseEntity<Line> createLine(@Valid @RequestBody LineRequest request) {
         return ResponseEntity
                 .status(HttpStatus.CREATED)
                 .body(lineService.createLine(request));
@@ -47,14 +45,12 @@ public class LineController {
 
     @PutMapping("/{id}")
     public ResponseEntity<Line> updateLine(@PathVariable String id, @Valid @RequestBody LineRequest request) {
-        return ResponseEntity.ok(
-                lineService.updateLine(id, request));
+        return ResponseEntity.ok(lineService.updateLine(id, request));
     }
 
     @PatchMapping("/{id}/status")
     public ResponseEntity<Line> updateLineStatus(@PathVariable String id, @RequestParam boolean active) {
-        return ResponseEntity.ok(
-                lineService.updateLineStatus(id, active));
+        return ResponseEntity.ok(lineService.updateLineStatus(id, active));
     }
 
     // @DeleteMapping("/{id}")

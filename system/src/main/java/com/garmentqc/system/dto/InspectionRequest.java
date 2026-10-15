@@ -38,6 +38,14 @@ public class InspectionRequest {
 
     private String comment;
 
+    private String inspectionTimeSlot;
+
+    private String handfeel;
+
+    private String grade;
+
+    private String process;
+
     @Valid
     private List<InspectionDefectRequest> defects = new ArrayList<>();
 

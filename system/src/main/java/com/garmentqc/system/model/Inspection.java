@@ -50,6 +50,18 @@ public class Inspection extends BaseEntity {
     @Column(name = "color_name", nullable = false, length = 100)
     private String colorName;
 
+    @Column(name = "inspection_time_slot", length = 20)
+    private String inspectionTimeSlot;
+
+    @Column(name = "handfeel", length = 100)
+    private String handfeel;
+
+    @Column(name = "grade", length = 50)
+    private String grade;
+
+    @Column(name = "process", length = 20)
+    private String process;
+
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "submitted_by", nullable = false)
     private User submittedBy;
