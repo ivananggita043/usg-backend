@@ -1,3 +1,4 @@
+
 package com.garmentqc.system.service;
 
 import com.garmentqc.system.model.DefectType;
@@ -54,13 +55,12 @@ public class SewingReportExcelService {
     private static final ZoneId ZONE_ID = ZoneId.of("Asia/Jakarta");
     private static final String SEWING = "SEWING";
     private static final DateTimeFormatter DATE_FORMAT = DateTimeFormatter.ofPattern("dd MMMM yyyy");
-
     private final InspectionRepository inspectionRepository;
     private final InspectionReportService inspectionReportService;
 
     public byte[] exportDailySewingExcel(LocalDate date, User currentUser) throws IOException {
-
         String section = inspectionReportService.resolveSectionForUser(currentUser, SEWING);
+
         Instant start = date.atStartOfDay(ZONE_ID).toInstant();
         Instant end = date.plusDays(1).atStartOfDay(ZONE_ID).toInstant();
 
@@ -87,6 +87,7 @@ public class SewingReportExcelService {
                 .collect(Collectors.toList());
 
         Map<String, LineData> lineDataMap = new LinkedHashMap<>();
+
         for (Inspection inspection : inspections) {
             Line line = inspection.getLine();
             String lineId = line.getId();
@@ -102,19 +103,16 @@ public class SewingReportExcelService {
         try (
                 Workbook workbook = new XSSFWorkbook();
                 ByteArrayOutputStream outputStream = new ByteArrayOutputStream()) {
-            Sheet sheet = workbook.createSheet("Daily Sewing Report");
 
+            Sheet sheet = workbook.createSheet("Daily Sewing Report");
             ReportStyles styles = new ReportStyles(workbook);
             int lastColumn = lines.size() + 1;
 
-            createReportHeader(
-                    sheet,
-                    styles,
-                    date,
-                    lastColumn);
+            createReportHeader(sheet, styles, date, lastColumn);
 
             int rowIndex = 5;
             int infoStartRow = rowIndex;
+
             rowIndex = writeLineInfoRow(
                     sheet,
                     rowIndex++,
@@ -216,17 +214,12 @@ public class SewingReportExcelService {
             configureRowHeights(sheet);
 
             workbook.write(outputStream);
-
             return outputStream.toByteArray();
         }
     }
 
     private boolean canViewInspection(Inspection inspection, User currentUser) {
-        if (currentUser == null) {
-            return false;
-        }
-
-        if (currentUser.getRole() == null) {
+        if (currentUser == null || currentUser.getRole() == null) {
             return false;
         }
 
@@ -250,42 +243,27 @@ public class SewingReportExcelService {
 
     private void createReportHeader(Sheet sheet, ReportStyles styles, LocalDate date, int lastColumn) {
         createMergedRow(
-                sheet,
-                0,
-                0,
-                lastColumn,
+                sheet, 0, 0, lastColumn,
                 "PT UNGARAN SARI GARMENT",
                 styles.titleStyle);
 
         createMergedRow(
-                sheet,
-                1,
-                0,
-                lastColumn,
+                sheet, 1, 0, lastColumn,
                 "DAILY REPORT SEWING SECTION",
                 styles.subtitleStyle);
 
         createMergedRow(
-                sheet,
-                2,
-                0,
-                lastColumn,
+                sheet, 2, 0, lastColumn,
                 "QC DEPARTMENT",
                 styles.subtitleStyle);
 
         createMergedRow(
-                sheet,
-                3,
-                0,
-                lastColumn,
+                sheet, 3, 0, lastColumn,
                 "DEPT: DRESS 2",
                 styles.subtitleStyle);
 
         createMergedRow(
-                sheet,
-                4,
-                0,
-                lastColumn,
+                sheet, 4, 0, lastColumn,
                 "REPORT DATE: " + date.format(DATE_FORMAT),
                 styles.periodStyle);
     }
@@ -295,6 +273,7 @@ public class SewingReportExcelService {
         Row row = sheet.createRow(rowIndex);
 
         for (int column = firstColumn; column <= lastColumn; column++) {
+
             Cell cell = row.createCell(column);
             cell.setCellStyle(style);
         }
@@ -318,11 +297,13 @@ public class SewingReportExcelService {
         Cell labelCell = row.createCell(0);
         labelCell.setCellValue(label);
         labelCell.setCellStyle(styles.headerLabelStyle);
+
         int column = 1;
 
         for (LineData line : lines) {
             Cell cell = row.createCell(column++);
-            cell.setCellValue(nullToEmpty(valueFunction.apply(line)));
+            cell.setCellValue(
+                    nullToEmpty(valueFunction.apply(line)));
             cell.setCellStyle(styles.headerCenterStyle);
         }
 
@@ -342,13 +323,11 @@ public class SewingReportExcelService {
                 lastColumn,
                 "DEFECT DETAILS",
                 styles.headerStyle);
-
         rowIndex++;
 
         Map<String, Map<String, Map<String, Integer>>> grouped = new TreeMap<>(String.CASE_INSENSITIVE_ORDER);
         for (LineData line : lines) {
             for (Map.Entry<DefectKey, Integer> entry : line.getDefectQuantities().entrySet()) {
-
                 DefectKey key = entry.getKey();
 
                 grouped
@@ -368,8 +347,8 @@ public class SewingReportExcelService {
         }
 
         for (Map.Entry<String, Map<String, Map<String, Integer>>> categoryEntry : grouped.entrySet()) {
-
             String categoryName = categoryEntry.getKey();
+
             createMergedRow(
                     sheet,
                     rowIndex,
@@ -390,6 +369,7 @@ public class SewingReportExcelService {
                     areaCell.setCellStyle(styles.areaStyle);
 
                     for (int column = 1; column <= lastColumn; column++) {
+
                         areaRow.createCell(column)
                                 .setCellStyle(styles.areaStyle);
                     }
@@ -405,6 +385,7 @@ public class SewingReportExcelService {
                     int totalQuantity = 0;
 
                     for (int column = 0; column < lines.size(); column++) {
+
                         LineData line = lines.get(column);
 
                         int quantity = line.getDefectQuantity(
@@ -415,14 +396,19 @@ public class SewingReportExcelService {
                         totalQuantity += quantity;
 
                         Cell cell = row.createCell(column + 1);
-                        cell.setCellValue(quantity);
-                        cell.setCellStyle(styles.numberStyle);
+                        if (quantity != 0) {
+                            cell.setCellValue(quantity);
+                        }
+                        cell.setCellStyle(styles.defectNumberStyle);
                     }
 
                     Cell totalCell = row.createCell(lastColumn);
-                    totalCell.setCellValue(totalQuantity);
-                    totalCell.setCellStyle(styles.numberStyle);
 
+                    if (totalQuantity != 0) {
+                        totalCell.setCellValue(totalQuantity);
+                    }
+
+                    totalCell.setCellStyle(styles.defectTotalStyle);
                     rowIndex++;
                 }
             }
@@ -439,6 +425,7 @@ public class SewingReportExcelService {
         Cell labelCell = row.createCell(0);
         labelCell.setCellValue(label);
         labelCell.setCellStyle(rowStyle);
+
         int grandTotal = 0;
         int column = 1;
 
@@ -446,14 +433,20 @@ public class SewingReportExcelService {
             int value = valueFunction.applyAsInt(line);
             grandTotal += value;
             Cell cell = row.createCell(column++);
-            cell.setCellValue(value);
+
+            if (value != 0) {
+                cell.setCellValue(value);
+            }
+
             cell.setCellStyle(valueStyle);
         }
 
         Cell totalCell = row.createCell(lastColumn);
-        totalCell.setCellValue(grandTotal);
-        totalCell.setCellStyle(styles.grandTotalStyle);
+        if (grandTotal != 0) {
+            totalCell.setCellValue(grandTotal);
+        }
 
+        totalCell.setCellStyle(styles.grandTotalStyle);
         return rowIndex + 1;
     }
 
@@ -481,7 +474,11 @@ public class SewingReportExcelService {
             totalDefect += defect;
 
             Cell cell = row.createCell(column++);
-            cell.setCellValue(percentage);
+
+            if (percentage != 0.0) {
+                cell.setCellValue(percentage);
+            }
+
             cell.setCellStyle(styles.percentageStyle);
         }
 
@@ -490,7 +487,11 @@ public class SewingReportExcelService {
                 : (double) totalDefect / totalInspect;
 
         Cell totalCell = row.createCell(lastColumn);
-        totalCell.setCellValue(grandPercentage);
+
+        if (grandPercentage != 0.0) {
+            totalCell.setCellValue(grandPercentage);
+        }
+
         totalCell.setCellStyle(styles.grandPercentageStyle);
 
         return rowIndex + 1;
@@ -500,6 +501,7 @@ public class SewingReportExcelService {
         sheet.setColumnWidth(0, 30 * 256);
 
         for (int column = 1; column <= lineCount; column++) {
+
             sheet.setColumnWidth(column, 14 * 256);
         }
 
@@ -509,6 +511,7 @@ public class SewingReportExcelService {
     private void configureRowHeights(Sheet sheet) {
         for (int i = 0; i <= sheet.getLastRowNum(); i++) {
             Row row = sheet.getRow(i);
+
             if (row == null) {
                 continue;
             }
@@ -531,6 +534,7 @@ public class SewingReportExcelService {
         style.setBorderTop(BorderStyle.THIN);
         style.setBorderLeft(BorderStyle.THIN);
         style.setBorderRight(BorderStyle.THIN);
+
         style.setBottomBorderColor(IndexedColors.GREY_25_PERCENT.getIndex());
         style.setTopBorderColor(IndexedColors.GREY_25_PERCENT.getIndex());
         style.setLeftBorderColor(IndexedColors.GREY_25_PERCENT.getIndex());
@@ -575,6 +579,7 @@ public class SewingReportExcelService {
 
         private final Set<String> buyers = new LinkedHashSet<>();
         private final Set<String> styles = new LinkedHashSet<>();
+
         private final Map<DefectKey, Integer> defectQuantities = new LinkedHashMap<>();
 
         private LineData(String lineName) {
@@ -592,11 +597,13 @@ public class SewingReportExcelService {
 
             if (inspection.getBuyerName() != null
                     && !inspection.getBuyerName().isBlank()) {
+
                 buyers.add(inspection.getBuyerName());
             }
 
             if (inspection.getStyleCode() != null
                     && !inspection.getStyleCode().isBlank()) {
+
                 styles.add(inspection.getStyleCode());
             }
 
@@ -605,10 +612,13 @@ public class SewingReportExcelService {
             }
 
             for (InspectionDefect inspectionDefect : inspection.getInspectionDefects()) {
+
                 if (inspectionDefect.getDefectType() == null) {
                     continue;
                 }
+
                 DefectType defectType = inspectionDefect.getDefectType();
+
                 int quantity = inspectionDefect.getQuantity() == null
                         ? 0
                         : inspectionDefect.getQuantity();
@@ -625,16 +635,22 @@ public class SewingReportExcelService {
 
                 if (defectType.getDefectArea() != null
                         && defectType.getDefectArea().getName() != null) {
+
                     area = defectType.getDefectArea().getName();
                 }
 
                 String defectName = defectType.getName();
+
                 DefectKey key = new DefectKey(
                         formatCategoryStatic(category),
                         area,
                         defectName);
 
-                defectQuantities.merge(key, quantity, Integer::sum);
+                defectQuantities.merge(
+                        key,
+                        quantity,
+                        Integer::sum);
+
                 totalDefect += quantity;
             }
         }
@@ -693,6 +709,7 @@ public class SewingReportExcelService {
     }
 
     private static class ReportStyles {
+
         private final CellStyle titleStyle;
         private final CellStyle subtitleStyle;
         private final CellStyle periodStyle;
@@ -703,6 +720,8 @@ public class SewingReportExcelService {
         private final CellStyle areaStyle;
         private final CellStyle bodyStyle;
         private final CellStyle numberStyle;
+        private final CellStyle defectNumberStyle;
+        private final CellStyle defectTotalStyle;
         private final CellStyle summaryStyle;
         private final CellStyle grandTotalStyle;
         private final CellStyle percentageStyle;
@@ -716,7 +735,6 @@ public class SewingReportExcelService {
         private static final Color YELLOW_LIGHT = new Color(255, 249, 196);
 
         private ReportStyles(Workbook workbook) {
-
             titleStyle = createStyle(
                     workbook,
                     GREEN_HEADER,
@@ -764,6 +782,7 @@ public class SewingReportExcelService {
                     (short) 9,
                     true,
                     HorizontalAlignment.CENTER);
+
             headerCenterStyle.setWrapText(true);
 
             categoryStyle = createStyle(
@@ -792,11 +811,27 @@ public class SewingReportExcelService {
 
             numberStyle = createStyle(
                     workbook,
+                    BEIGE,
+                    IndexedColors.DARK_BLUE.getIndex(),
+                    (short) 9,
+                    false,
+                    HorizontalAlignment.CENTER);
+
+            defectNumberStyle = createStyle(
+                    workbook,
                     Color.WHITE,
                     IndexedColors.BLACK.getIndex(),
                     (short) 9,
                     false,
-                    HorizontalAlignment.RIGHT);
+                    HorizontalAlignment.CENTER);
+
+            defectTotalStyle = createStyle(
+                    workbook,
+                    GREEN_TOTAL,
+                    IndexedColors.DARK_GREEN.getIndex(),
+                    (short) 9,
+                    true,
+                    HorizontalAlignment.CENTER);
 
             summaryStyle = createStyle(
                     workbook,
@@ -812,7 +847,7 @@ public class SewingReportExcelService {
                     IndexedColors.DARK_GREEN.getIndex(),
                     (short) 9,
                     true,
-                    HorizontalAlignment.RIGHT);
+                    HorizontalAlignment.CENTER);
 
             percentageStyle = createStyle(
                     workbook,
@@ -820,7 +855,7 @@ public class SewingReportExcelService {
                     IndexedColors.DARK_BLUE.getIndex(),
                     (short) 9,
                     true,
-                    HorizontalAlignment.RIGHT);
+                    HorizontalAlignment.CENTER);
 
             grandPercentageStyle = createStyle(
                     workbook,
@@ -828,7 +863,7 @@ public class SewingReportExcelService {
                     IndexedColors.DARK_GREEN.getIndex(),
                     (short) 9,
                     true,
-                    HorizontalAlignment.RIGHT);
+                    HorizontalAlignment.CENTER);
 
             percentageStyle.setDataFormat(
                     workbook.createDataFormat().getFormat("0.00%"));
@@ -841,30 +876,29 @@ public class SewingReportExcelService {
                 boolean bold, HorizontalAlignment alignment) {
             XSSFCellStyle style = (XSSFCellStyle) workbook.createCellStyle();
 
-            style.setFillForegroundColor(
-                    new XSSFColor(
-                            background,
-                            new DefaultIndexedColorMap()));
-
+            style.setFillForegroundColor(new XSSFColor(background, new DefaultIndexedColorMap()));
             style.setFillPattern(FillPatternType.SOLID_FOREGROUND);
             style.setAlignment(alignment);
             style.setVerticalAlignment(VerticalAlignment.CENTER);
+
             style.setBorderTop(BorderStyle.THIN);
             style.setBorderBottom(BorderStyle.THIN);
             style.setBorderLeft(BorderStyle.THIN);
             style.setBorderRight(BorderStyle.THIN);
+
             style.setTopBorderColor(IndexedColors.GREY_25_PERCENT.getIndex());
             style.setBottomBorderColor(IndexedColors.GREY_25_PERCENT.getIndex());
             style.setLeftBorderColor(IndexedColors.GREY_25_PERCENT.getIndex());
             style.setRightBorderColor(IndexedColors.GREY_25_PERCENT.getIndex());
 
             XSSFFont font = (XSSFFont) workbook.createFont();
+
             font.setFontName("Calibri");
             font.setFontHeightInPoints(fontSize);
             font.setBold(bold);
             font.setColor(fontColor);
-            style.setFont(font);
 
+            style.setFont(font);
             return style;
         }
     }

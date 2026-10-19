@@ -19,28 +19,28 @@ import com.garmentqc.system.service.SewingReportExcelService;
 import lombok.RequiredArgsConstructor;
 
 @RestController
-@RequestMapping("/api/reports/excel")
+@RequestMapping("/excel/sewing")
 @RequiredArgsConstructor
 public class SewingReportExcelController {
 
-    private final SewingReportExcelService excelService;
+        private final SewingReportExcelService excelService;
 
-    @GetMapping("/sewing/daily")
-    public ResponseEntity<byte[]> exportDailySewingExcel(
-            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
-            @AuthenticationPrincipal User currentUser)
-            throws IOException {
+        @GetMapping("/daily/export")
+        public ResponseEntity<byte[]> exportDailySewingExcel(
+                        @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
+                        @AuthenticationPrincipal User currentUser)
+                        throws IOException {
 
-        byte[] excel = excelService.exportDailySewingExcel(
-                date, currentUser);
+                byte[] excel = excelService.exportDailySewingExcel(
+                                date, currentUser);
 
-        return ResponseEntity.ok()
-                .contentType(MediaType.parseMediaType(
-                        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
-                .header(
-                        HttpHeaders.CONTENT_DISPOSITION,
-                        "attachment; filename=\"Report_Sewing_Daily_"
-                                + date + ".xlsx\"")
-                .body(excel);
-    }
+                return ResponseEntity.ok()
+                                .contentType(MediaType.parseMediaType(
+                                                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
+                                .header(
+                                                HttpHeaders.CONTENT_DISPOSITION,
+                                                "attachment; filename=\"Report-Sewing-Daily-"
+                                                                + date + ".xlsx\"")
+                                .body(excel);
+        }
 }

@@ -19,7 +19,7 @@ import com.garmentqc.system.service.CuttingReportService;
 import lombok.RequiredArgsConstructor;
 
 @RestController
-@RequestMapping("/cutting/reports")
+@RequestMapping("/excel/cutting")
 @RequiredArgsConstructor
 public class CuttingReportExcelController {
 

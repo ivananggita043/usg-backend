@@ -45,7 +45,7 @@ public class CuttingReportService {
 
         @Transactional(readOnly = true)
         public CuttingReportResponse getWeeklyReport(LocalDate date) {
-                LocalDate startDate = date.minusDays(date.getDayOfWeek().getValue() - 1);
+                LocalDate startDate = getWeeklyStartDate(date);
                 LocalDate endDate = startDate.plusDays(6);
 
                 return generateReport("WEEKLY", startDate, endDate);
@@ -71,16 +71,18 @@ public class CuttingReportService {
 
         @Transactional(readOnly = true)
         public CuttingGroupedReportResponse getWeeklyBuyerReport(LocalDate date) {
-                LocalDate start = date.minusDays(date.getDayOfWeek().getValue() - 1);
+                LocalDate start = getWeeklyStartDate(date);
 
-                return generateGroupedReport("WEEKLY", start, start.plusDays(6), false);
+                return generateGroupedReport(
+                                "WEEKLY", start, start.plusDays(6), false);
         }
 
         @Transactional(readOnly = true)
         public CuttingGroupedReportResponse getWeeklyStyleReport(LocalDate date) {
-                LocalDate start = date.minusDays(date.getDayOfWeek().getValue() - 1);
+                LocalDate start = getWeeklyStartDate(date);
 
-                return generateGroupedReport("WEEKLY", start, start.plusDays(6), true);
+                return generateGroupedReport(
+                                "WEEKLY", start, start.plusDays(6), true);
         }
 
         @Transactional(readOnly = true)
@@ -342,4 +344,10 @@ public class CuttingReportService {
 
                 return Math.round(percentage * 100.0) / 100.0;
         }
+
+        private LocalDate getWeeklyStartDate(LocalDate date) {
+                int daysSinceFriday = (date.getDayOfWeek().getValue() - 5 + 7) % 7;
+                return date.minusDays(daysSinceFriday);
+        }
+
 }

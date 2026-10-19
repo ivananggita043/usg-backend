@@ -48,6 +48,10 @@ public class CuttingReportExcelService {
         private static final int OPERATOR_COL = 17;
         private static final int DETAIL_DEFECT_COL = 18;
 
+        // Judul tanggal berada di row 4, header tabel langsung di row 5.
+        private static final int HEADER_ROW_INDEX = 5;
+        private static final int FIRST_DATA_ROW_INDEX = HEADER_ROW_INDEX + 1;
+
         public byte[] export(CuttingReportResponse report) throws IOException {
 
                 try (Workbook workbook = new XSSFWorkbook();
@@ -56,6 +60,7 @@ public class CuttingReportExcelService {
                         Sheet sheet = workbook.createSheet("Cutting QC Report");
 
                         CellStyle titleStyle = createTitleStyle(workbook);
+                        CellStyle subtitleStyle = createSubtitleStyle(workbook);
                         CellStyle periodStyle = createPeriodStyle(workbook);
                         CellStyle headerStyle = createHeaderStyle(workbook);
                         CellStyle textStyle = createBodyStyle(workbook);
@@ -63,41 +68,78 @@ public class CuttingReportExcelService {
                         CellStyle percentageStyle = createPercentageStyle(workbook);
                         CellStyle subtotalStyle = createTotalStyle(workbook);
                         CellStyle grandTotalStyle = createGrandTotalStyle(workbook);
+
                         CellStyle subtotalCenterStyle = createCenteredTotalStyle(workbook, subtotalStyle);
+
                         CellStyle grandTotalCenterStyle = createCenteredTotalStyle(workbook, grandTotalStyle);
+
                         CellStyle subtotalPercentageStyle = createPercentageTotalStyle(workbook, subtotalCenterStyle);
-                        CellStyle grandTotalPercentageStyle = createPercentageTotalStyle(workbook, grandTotalCenterStyle);
 
-                        Row titleRow = sheet.createRow(0);
-                        titleRow.setHeightInPoints(34);
+                        CellStyle grandTotalPercentageStyle = createPercentageTotalStyle(workbook,
+                                        grandTotalCenterStyle);
 
-                        Cell titleCell = titleRow.createCell(0);
-                        titleCell.setCellValue("CUTTING QC REPORT");
-                        titleCell.setCellStyle(titleStyle);
+                        // =========================
+                        // REPORT TITLE
+                        // =========================
 
-                        sheet.addMergedRegion(
-                                        new CellRangeAddress(
-                                                        0, 0, 0, COLUMN_COUNT - 1));
+                        createMergedRow(
+                                        sheet,
+                                        0,
+                                        COLUMN_COUNT,
+                                        "PT UNGARAN SARI GARMENT",
+                                        titleStyle,
+                                        34);
 
-                        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd-MM-yyyy");
+                        createMergedRow(
+                                        sheet,
+                                        1,
+                                        COLUMN_COUNT,
+                                        "DAILY REPORT CUTTING SECTION",
+                                        subtitleStyle,
+                                        22);
 
-                        Row periodRow = sheet.createRow(1);
-                        periodRow.setHeightInPoints(25);
+                        createMergedRow(
+                                        sheet,
+                                        2,
+                                        COLUMN_COUNT,
+                                        "QC DEPARTMENT",
+                                        subtitleStyle,
+                                        20);
 
-                        Cell periodCell = periodRow.createCell(0);
-                        periodCell.setCellValue(
-                                        "Report: " + report.getReportType()
-                                                        + " | Period: "
-                                                        + report.getStartDate().format(formatter)
-                                                        + " - "
-                                                        + report.getEndDate().format(formatter));
+                        createMergedRow(
+                                        sheet,
+                                        3,
+                                        COLUMN_COUNT,
+                                        "DEPT: DRESS 2",
+                                        subtitleStyle,
+                                        20);
 
-                        periodCell.setCellStyle(periodStyle);
-                        sheet.addMergedRegion(
-                                        new CellRangeAddress(
-                                                        1, 1, 0, COLUMN_COUNT - 1));
+                        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd MMMM yyyy");
 
-                        Row headerRow = sheet.createRow(3);
+                        String reportDate;
+
+                        if (report.getStartDate().equals(report.getEndDate())) {
+                                reportDate = report.getStartDate().format(formatter);
+                        } else {
+                                reportDate = report.getStartDate().format(formatter)
+                                                + " - "
+                                                + report.getEndDate().format(formatter);
+                        }
+
+                        createMergedRow(
+                                        sheet,
+                                        4,
+                                        COLUMN_COUNT,
+                                        "REPORT DATE: " + reportDate,
+                                        periodStyle,
+                                        24);
+
+                        // =========================
+                        // TABLE HEADER
+                        // Langsung setelah tanggal
+                        // =========================
+
+                        Row headerRow = sheet.createRow(HEADER_ROW_INDEX);
                         headerRow.setHeightInPoints(34);
 
                         String[] headers = {
@@ -128,9 +170,14 @@ public class CuttingReportExcelService {
                                 cell.setCellStyle(headerStyle);
                         }
 
-                        int rowIndex = 4;
+                        // =========================
+                        // TABLE DATA
+                        // =========================
+
+                        int rowIndex = FIRST_DATA_ROW_INDEX;
 
                         Map<CuttingPanel, Long> grandPanelTotals = createEmptyPanelTotals();
+
                         long grandQuantityInspect = 0;
                         long grandDefects = 0;
 
@@ -142,27 +189,32 @@ public class CuttingReportExcelService {
                                         row.setHeightInPoints(22);
 
                                         setText(
-                                                        row, PROCESS_COL,
+                                                        row,
+                                                        PROCESS_COL,
                                                         process.getProcessCheck().name(),
                                                         textStyle);
 
                                         setText(
-                                                        row, BUYER_COL,
+                                                        row,
+                                                        BUYER_COL,
                                                         detail.getBuyerName(),
                                                         textStyle);
 
                                         setText(
-                                                        row, STYLE_COL,
+                                                        row,
+                                                        STYLE_COL,
                                                         detail.getStyleCode(),
                                                         textStyle);
 
                                         setText(
-                                                        row, COLOR_COL,
+                                                        row,
+                                                        COLOR_COL,
                                                         detail.getColorName(),
                                                         textStyle);
 
                                         setText(
-                                                        row, LOT_COL,
+                                                        row,
+                                                        LOT_COL,
                                                         detail.getLot(),
                                                         textStyle);
 
@@ -175,44 +227,61 @@ public class CuttingReportExcelService {
 
                                                 if (quantity > 0) {
                                                         setNumber(
-                                                                        row, column, quantity, numberStyle);
+                                                                        row,
+                                                                        column,
+                                                                        quantity,
+                                                                        numberStyle);
                                                 } else {
                                                         setText(
-                                                                        row, column, "", textStyle);
+                                                                        row,
+                                                                        column,
+                                                                        "",
+                                                                        textStyle);
                                                 }
 
                                                 grandPanelTotals.merge(
-                                                                panel, quantity, Long::sum);
+                                                                panel,
+                                                                quantity,
+                                                                Long::sum);
                                         }
 
                                         setNumber(
-                                                        row, QTY_INSPECT_COL,
+                                                        row,
+                                                        QTY_INSPECT_COL,
                                                         detail.getQuantityInspect(),
                                                         numberStyle);
 
                                         setNumber(
-                                                        row, QTY_DEFECT_COL,
+                                                        row,
+                                                        QTY_DEFECT_COL,
                                                         detail.getTotalDefects(),
                                                         numberStyle);
 
                                         setPercentage(
-                                                        row, PERCENTAGE_COL,
+                                                        row,
+                                                        PERCENTAGE_COL,
                                                         detail.getDefectPercentage(),
                                                         percentageStyle);
 
                                         setText(
-                                                        row, OPERATOR_COL,
+                                                        row,
+                                                        OPERATOR_COL,
                                                         detail.getOperatorName(),
                                                         textStyle);
 
                                         setText(
-                                                        row, DETAIL_DEFECT_COL,
+                                                        row,
+                                                        DETAIL_DEFECT_COL,
                                                         detail.getDefectTypeName(),
                                                         textStyle);
 
                                         grandQuantityInspect += detail.getQuantityInspect();
                                         grandDefects += detail.getTotalDefects();
                                 }
+
+                                // =========================
+                                // SUBTOTAL PER PROCESS
+                                // =========================
 
                                 Row subtotalRow = sheet.createRow(rowIndex++);
                                 subtotalRow.setHeightInPoints(25);
@@ -225,9 +294,10 @@ public class CuttingReportExcelService {
                                 subtotalLabel.setCellStyle(subtotalCenterStyle);
 
                                 for (int col = BUYER_COL; col < FIRST_PANEL_COL; col++) {
-
                                         setText(
-                                                        subtotalRow, col, "",
+                                                        subtotalRow,
+                                                        col,
+                                                        "",
                                                         subtotalCenterStyle);
                                 }
 
@@ -240,41 +310,57 @@ public class CuttingReportExcelService {
 
                                         if (quantity > 0) {
                                                 setNumber(
-                                                                subtotalRow, column, quantity,
+                                                                subtotalRow,
+                                                                column,
+                                                                quantity,
                                                                 subtotalCenterStyle);
                                         } else {
                                                 setText(
-                                                                subtotalRow, column, "",
+                                                                subtotalRow,
+                                                                column,
+                                                                "",
                                                                 subtotalCenterStyle);
                                         }
                                 }
 
                                 setNumber(
-                                                subtotalRow, QTY_INSPECT_COL,
+                                                subtotalRow,
+                                                QTY_INSPECT_COL,
                                                 process.getTotalQuantityInspect(),
                                                 subtotalCenterStyle);
 
                                 setNumber(
-                                                subtotalRow, QTY_DEFECT_COL,
+                                                subtotalRow,
+                                                QTY_DEFECT_COL,
                                                 process.getTotalDefects(),
                                                 subtotalCenterStyle);
 
                                 setPercentage(
-                                                subtotalRow, PERCENTAGE_COL,
+                                                subtotalRow,
+                                                PERCENTAGE_COL,
                                                 process.getDefectPercentage(),
                                                 subtotalPercentageStyle);
 
                                 for (int col = OPERATOR_COL; col < COLUMN_COUNT; col++) {
-
                                         setText(
-                                                        subtotalRow, col, "",
+                                                        subtotalRow,
+                                                        col,
+                                                        "",
                                                         subtotalCenterStyle);
                                 }
 
-                                rowIndex++;
+                                // Tidak ada rowIndex++ tambahan di sini.
+                                // Grand total / baris process berikutnya langsung menyusul.
                         }
 
-                        Row grandRow = sheet.createRow(rowIndex);
+                        // =========================
+                        // GRAND TOTAL
+                        // Langsung setelah subtotal terakhir
+                        // =========================
+
+                        int grandTotalRowIndex = rowIndex;
+
+                        Row grandRow = sheet.createRow(grandTotalRowIndex);
                         grandRow.setHeightInPoints(28);
 
                         Cell grandLabel = grandRow.createCell(PROCESS_COL);
@@ -282,9 +368,10 @@ public class CuttingReportExcelService {
                         grandLabel.setCellStyle(grandTotalCenterStyle);
 
                         for (int col = BUYER_COL; col < FIRST_PANEL_COL; col++) {
-
                                 setText(
-                                                grandRow, col, "",
+                                                grandRow,
+                                                col,
+                                                "",
                                                 grandTotalCenterStyle);
                         }
 
@@ -292,46 +379,56 @@ public class CuttingReportExcelService {
 
                                 int column = FIRST_PANEL_COL + panel.ordinal();
 
-                                long quantity = grandPanelTotals
-                                                .getOrDefault(panel, 0L);
+                                long quantity = grandPanelTotals.getOrDefault(panel, 0L);
 
                                 if (quantity > 0) {
                                         setNumber(
-                                                        grandRow, column, quantity,
+                                                        grandRow,
+                                                        column,
+                                                        quantity,
                                                         grandTotalCenterStyle);
                                 } else {
                                         setText(
-                                                        grandRow, column, "",
+                                                        grandRow,
+                                                        column,
+                                                        "",
                                                         grandTotalCenterStyle);
                                 }
                         }
 
                         setNumber(
-                                        grandRow, QTY_INSPECT_COL,
+                                        grandRow,
+                                        QTY_INSPECT_COL,
                                         grandQuantityInspect,
                                         grandTotalCenterStyle);
 
                         setNumber(
-                                        grandRow, QTY_DEFECT_COL,
+                                        grandRow,
+                                        QTY_DEFECT_COL,
                                         grandDefects,
                                         grandTotalCenterStyle);
 
                         double grandPercentage = grandQuantityInspect <= 0
                                         ? 0.0
-                                        : (double) grandDefects
-                                                        / grandQuantityInspect * 100.0;
+                                        : (double) grandDefects / grandQuantityInspect * 100.0;
 
                         setPercentage(
-                                        grandRow, PERCENTAGE_COL,
+                                        grandRow,
+                                        PERCENTAGE_COL,
                                         grandPercentage,
                                         grandTotalPercentageStyle);
 
                         for (int col = OPERATOR_COL; col < COLUMN_COUNT; col++) {
-
                                 setText(
-                                                grandRow, col, "",
+                                                grandRow,
+                                                col,
+                                                "",
                                                 grandTotalCenterStyle);
                         }
+
+                        // =========================
+                        // COLUMN WIDTHS
+                        // =========================
 
                         int[] widths = {
                                         24, 18, 20, 16, 16,
@@ -343,29 +440,96 @@ public class CuttingReportExcelService {
                                 sheet.setColumnWidth(i, widths[i] * 256);
                         }
 
-                        sheet.createFreezePane(5, 4);
+                        // Sesuaikan lebar kolom DETAIL DEFECT dengan isi terpanjang
+                        sheet.autoSizeColumn(DETAIL_DEFECT_COL);
 
-                        if (rowIndex > 4) {
+                        // Tambahkan sedikit ruang agar teks tidak terlalu mepet
+                        int currentWidth = sheet.getColumnWidth(DETAIL_DEFECT_COL);
+                        int extraWidth = 2 * 256;
+                        int maxWidth = 60 * 256;
+
+                        sheet.setColumnWidth(
+                                        DETAIL_DEFECT_COL,
+                                        Math.min(currentWidth + extraWidth, maxWidth));
+
+                        // =========================
+                        // FREEZE, FILTER, PRINT
+                        // =========================
+
+                        sheet.createFreezePane(
+                                        FIRST_PANEL_COL,
+                                        FIRST_DATA_ROW_INDEX);
+
+                        // Filter hanya untuk header dan data,
+                        // tidak termasuk baris GRAND TOTAL.
+                        if (grandTotalRowIndex > HEADER_ROW_INDEX) {
                                 sheet.setAutoFilter(
                                                 new CellRangeAddress(
-                                                                3, rowIndex - 1,
-                                                                0, COLUMN_COUNT - 1));
+                                                                HEADER_ROW_INDEX,
+                                                                grandTotalRowIndex - 1,
+                                                                0,
+                                                                COLUMN_COUNT - 1));
                         }
 
                         sheet.setFitToPage(true);
                         sheet.getPrintSetup().setLandscape(true);
                         sheet.getPrintSetup().setFitWidth((short) 1);
                         sheet.getPrintSetup().setFitHeight((short) 0);
+
                         sheet.setRepeatingRows(
-                                        new CellRangeAddress(3, 3, -1, -1));
+                                        new CellRangeAddress(
+                                                        HEADER_ROW_INDEX,
+                                                        HEADER_ROW_INDEX,
+                                                        -1,
+                                                        -1));
 
                         workbook.write(output);
                         return output.toByteArray();
                 }
         }
 
+        // =========================
+        // MERGED TITLE ROW
+        // =========================
+
+        private void createMergedRow(
+                        Sheet sheet,
+                        int rowIndex,
+                        int columnCount,
+                        String value,
+                        CellStyle style,
+                        float height) {
+
+                Row row = sheet.createRow(rowIndex);
+                row.setHeightInPoints(height);
+
+                for (int col = 0; col < columnCount; col++) {
+
+                        Cell cell = row.createCell(col);
+
+                        if (col == 0) {
+                                cell.setCellValue(value);
+                        }
+
+                        cell.setCellStyle(style);
+                }
+
+                sheet.addMergedRegion(
+                                new CellRangeAddress(
+                                                rowIndex,
+                                                rowIndex,
+                                                0,
+                                                columnCount - 1));
+        }
+
+        // =========================
+        // PANEL TOTALS
+        // =========================
+
         private Map<CuttingPanel, Long> createEmptyPanelTotals() {
+
                 Map<CuttingPanel, Long> totals = new EnumMap<>(CuttingPanel.class);
+
                 for (CuttingPanel panel : CuttingPanel.values()) {
                         totals.put(panel, 0L);
                 }
@@ -373,25 +537,49 @@ public class CuttingReportExcelService {
                 return totals;
         }
 
-        private void setText(Row row, int column, String value, CellStyle style) {
+        // =========================
+        // CELL HELPERS
+        // =========================
+
+        private void setText(
+                        Row row,
+                        int column,
+                        String value,
+                        CellStyle style) {
+
                 Cell cell = row.createCell(column);
                 cell.setCellValue(value == null ? "" : value);
                 cell.setCellStyle(style);
         }
 
-        private void setNumber(Row row, int column, long value, CellStyle style) {
+        private void setNumber(
+                        Row row,
+                        int column,
+                        long value,
+                        CellStyle style) {
+
                 Cell cell = row.createCell(column);
                 cell.setCellValue(value);
                 cell.setCellStyle(style);
         }
 
-        private void setPercentage(Row row, int column, double percentage, CellStyle style) {
+        private void setPercentage(
+                        Row row,
+                        int column,
+                        double percentage,
+                        CellStyle style) {
+
                 Cell cell = row.createCell(column);
                 cell.setCellValue(percentage / 100.0);
                 cell.setCellStyle(style);
         }
 
+        // =========================
+        // CELL STYLES
+        // =========================
+
         private CellStyle createTitleStyle(Workbook workbook) {
+
                 CellStyle style = createBodyStyle(workbook);
 
                 Font font = workbook.createFont();
@@ -409,10 +597,31 @@ public class CuttingReportExcelService {
                 return style;
         }
 
-        private CellStyle createPeriodStyle(Workbook workbook) {
+        private CellStyle createSubtitleStyle(Workbook workbook) {
+
                 CellStyle style = createBodyStyle(workbook);
 
                 Font font = workbook.createFont();
+                font.setBold(true);
+                font.setFontHeightInPoints((short) 10);
+                font.setColor(IndexedColors.WHITE.getIndex());
+
+                style.setFont(font);
+
+                setFillColor(style, 96, 125, 107);
+
+                style.setAlignment(HorizontalAlignment.CENTER);
+                style.setVerticalAlignment(VerticalAlignment.CENTER);
+
+                return style;
+        }
+
+        private CellStyle createPeriodStyle(Workbook workbook) {
+
+                CellStyle style = createBodyStyle(workbook);
+
+                Font font = workbook.createFont();
+                font.setBold(true);
                 font.setFontHeightInPoints((short) 10);
                 font.setColor(IndexedColors.DARK_BLUE.getIndex());
 
@@ -420,13 +629,14 @@ public class CuttingReportExcelService {
 
                 setFillColor(style, 238, 243, 238);
 
-                style.setAlignment(HorizontalAlignment.LEFT);
+                style.setAlignment(HorizontalAlignment.CENTER);
                 style.setVerticalAlignment(VerticalAlignment.CENTER);
 
                 return style;
         }
 
         private CellStyle createHeaderStyle(Workbook workbook) {
+
                 CellStyle style = createBodyStyle(workbook);
 
                 Font font = workbook.createFont();
@@ -446,39 +656,55 @@ public class CuttingReportExcelService {
         }
 
         private CellStyle createBodyStyle(Workbook workbook) {
+
                 CellStyle style = workbook.createCellStyle();
 
+                // Semua value default rata tengah secara horizontal dan vertikal.
+                style.setAlignment(HorizontalAlignment.CENTER);
                 style.setVerticalAlignment(VerticalAlignment.CENTER);
 
                 style.setBorderBottom(BorderStyle.THIN);
                 style.setBorderTop(BorderStyle.THIN);
                 style.setBorderLeft(BorderStyle.THIN);
                 style.setBorderRight(BorderStyle.THIN);
-                style.setBottomBorderColor(IndexedColors.GREY_25_PERCENT.getIndex());
-                style.setTopBorderColor(IndexedColors.GREY_25_PERCENT.getIndex());
-                style.setLeftBorderColor(IndexedColors.GREY_25_PERCENT.getIndex());
-                style.setRightBorderColor(IndexedColors.GREY_25_PERCENT.getIndex());
+
+                style.setBottomBorderColor(
+                                IndexedColors.GREY_25_PERCENT.getIndex());
+
+                style.setTopBorderColor(
+                                IndexedColors.GREY_25_PERCENT.getIndex());
+
+                style.setLeftBorderColor(
+                                IndexedColors.GREY_25_PERCENT.getIndex());
+
+                style.setRightBorderColor(
+                                IndexedColors.GREY_25_PERCENT.getIndex());
 
                 return style;
         }
 
         private CellStyle createNumberStyle(Workbook workbook) {
+
                 CellStyle style = createBodyStyle(workbook);
-                style.setAlignment(HorizontalAlignment.CENTER);
-                style.setDataFormat(workbook.createDataFormat().getFormat("#,##0"));
+
+                style.setDataFormat(
+                                workbook.createDataFormat().getFormat("#,##0"));
 
                 return style;
         }
 
         private CellStyle createPercentageStyle(Workbook workbook) {
+
                 CellStyle style = createBodyStyle(workbook);
-                style.setAlignment(HorizontalAlignment.CENTER);
-                style.setDataFormat(workbook.createDataFormat().getFormat("0.00%"));
+
+                style.setDataFormat(
+                                workbook.createDataFormat().getFormat("0.00%"));
 
                 return style;
         }
 
         private CellStyle createTotalStyle(Workbook workbook) {
+
                 CellStyle style = createBodyStyle(workbook);
 
                 Font font = workbook.createFont();
@@ -486,12 +712,14 @@ public class CuttingReportExcelService {
                 font.setColor(IndexedColors.DARK_BLUE.getIndex());
 
                 style.setFont(font);
+
                 setFillColor(style, 245, 240, 230);
 
                 return style;
         }
 
         private CellStyle createGrandTotalStyle(Workbook workbook) {
+
                 CellStyle style = createBodyStyle(workbook);
 
                 Font font = workbook.createFont();
@@ -505,7 +733,10 @@ public class CuttingReportExcelService {
                 return style;
         }
 
-        private CellStyle createCenteredTotalStyle(Workbook workbook, CellStyle baseStyle) {
+        private CellStyle createCenteredTotalStyle(
+                        Workbook workbook,
+                        CellStyle baseStyle) {
+
                 CellStyle style = workbook.createCellStyle();
                 style.cloneStyleFrom(baseStyle);
 
@@ -515,7 +746,10 @@ public class CuttingReportExcelService {
                 return style;
         }
 
-        private CellStyle createPercentageTotalStyle(Workbook workbook, CellStyle baseStyle) {
+        private CellStyle createPercentageTotalStyle(
+                        Workbook workbook,
+                        CellStyle baseStyle) {
+
                 CellStyle style = workbook.createCellStyle();
                 style.cloneStyleFrom(baseStyle);
 
@@ -528,12 +762,23 @@ public class CuttingReportExcelService {
                 return style;
         }
 
-        private void setFillColor(CellStyle style, int red, int green, int blue) {
+        // =========================
+        // FILL COLOR
+        // =========================
+
+        private void setFillColor(
+                        CellStyle style,
+                        int red,
+                        int green,
+                        int blue) {
+
                 XSSFColor color = new XSSFColor(
                                 new Color(red, green, blue),
                                 new DefaultIndexedColorMap());
 
                 ((XSSFCellStyle) style).setFillForegroundColor(color);
-                style.setFillPattern(FillPatternType.SOLID_FOREGROUND);
+
+                style.setFillPattern(
+                                FillPatternType.SOLID_FOREGROUND);
         }
 }
