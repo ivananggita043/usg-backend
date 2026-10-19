@@ -87,14 +87,12 @@ public class SewingReportExcelService {
                 .collect(Collectors.toList());
 
         Map<String, LineData> lineDataMap = new LinkedHashMap<>();
-
         for (Inspection inspection : inspections) {
             Line line = inspection.getLine();
             String lineId = line.getId();
             LineData data = lineDataMap.computeIfAbsent(
                     lineId,
                     id -> new LineData(line.getName()));
-
             data.addInspection(inspection);
         }
 

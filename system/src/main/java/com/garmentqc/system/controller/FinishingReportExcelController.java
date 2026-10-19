@@ -21,33 +21,33 @@ import com.garmentqc.system.service.FinishingReportExcelService;
 @RequestMapping("/excel/finishing")
 public class FinishingReportExcelController {
 
-    private final FinishingReportExcelService reportService;
+        private final FinishingReportExcelService reportService;
 
-    public FinishingReportExcelController(FinishingReportExcelService reportService) {
-        this.reportService = reportService;
-    }
+        public FinishingReportExcelController(FinishingReportExcelService reportService) {
+                this.reportService = reportService;
+        }
 
-    @GetMapping("/daily/export")
-    public ResponseEntity<byte[]> downloadExcel(
-            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
-            Authentication authentication) throws Exception {
+        @GetMapping("/daily/export")
+        public ResponseEntity<byte[]> downloadExcel(
+                        @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
+                        Authentication authentication) throws Exception {
 
-        User currentUser = (User) authentication.getPrincipal();
-        byte[] file = reportService.exportDailyFinishingExcel(
-                date, currentUser);
-        String filename = "Report-Finishing-Daily-"
-                + date.format(DateTimeFormatter.ISO_DATE)
-                + ".xlsx";
+                User currentUser = (User) authentication.getPrincipal();
+                byte[] file = reportService.exportDailyFinishingExcel(
+                                date, currentUser);
+                String filename = "Report-Finishing-Daily-"
+                                + date.format(DateTimeFormatter.ISO_DATE)
+                                + ".xlsx";
 
-        return ResponseEntity.ok()                                                                                                                                                                                                                                                                                                                                                                                                                                   
-                .contentType(MediaType.parseMediaType(
-                        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
-                .header(
-                        HttpHeaders.CONTENT_DISPOSITION,
-                        ContentDisposition.attachment()
-                                .filename(filename)
-                                .build()
-                                .toString())
-                .body(file);
-    }
+                return ResponseEntity.ok()
+                                .contentType(MediaType.parseMediaType(
+                                                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
+                                .header(
+                                                HttpHeaders.CONTENT_DISPOSITION,
+                                                ContentDisposition.attachment()
+                                                                .filename(filename)
+                                                                .build()
+                                                                .toString())
+                                .body(file);
+        }
 }
