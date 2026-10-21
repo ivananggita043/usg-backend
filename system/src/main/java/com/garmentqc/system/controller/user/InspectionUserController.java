@@ -13,6 +13,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.garmentqc.system.dto.InspectionRequest;
@@ -34,9 +35,10 @@ public class InspectionUserController {
         return ResponseEntity.status(HttpStatus.CREATED).body(inspectionService.create(request));
     }
 
-    @GetMapping
-    public ResponseEntity<List<InspectionResponse>> getAll() {
-        return ResponseEntity.ok(inspectionService.getAll());
+    @GetMapping("/all")
+    public ResponseEntity<List<InspectionResponse>> getAll(@RequestParam(required = false) String section) {
+        return ResponseEntity.ok(
+                inspectionService.getAll(section));
     }
 
     @GetMapping("/{id}")

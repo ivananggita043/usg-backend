@@ -119,11 +119,37 @@ public class InspectionService {
         }
 
         @Transactional(readOnly = true)
-        public List<InspectionResponse> getAll() {
+        public List<InspectionResponse> getAll(String section) {
                 User currentUser = getCurrentUser();
+                String selectedSection = normalizeOptional(section);
+                String role = currentUser.getRole().name();
+
+                if (SUPER_ADMIN.equals(role) && selectedSection == null) {
+                        throw new BadRequestException(
+                                        "Super Admin wajib memilih section: "
+                                                        + String.join(", ", SUPPORTED_SECTIONS));
+                }
+
+                if (selectedSection != null
+                                && !SUPPORTED_SECTIONS.contains(selectedSection)) {
+                        throw new BadRequestException(
+                                        "Section tidak valid. Pilihan: "
+                                                        + String.join(", ", SUPPORTED_SECTIONS));
+                }
+
                 return inspectionRepository.findAll()
                                 .stream()
                                 .filter(inspection -> canAccessInspection(currentUser, inspection))
+                                .filter(inspection -> {
+                                        if (selectedSection == null) {
+                                                return true;
+                                        }
+
+                                        return inspection.getLine() != null
+                                                        && inspection.getLine().getSection() != null
+                                                        && selectedSection.equals(
+                                                                        inspection.getLine().getSection().name());
+                                })
                                 .map(this::toResponse)
                                 .toList();
         }

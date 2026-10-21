@@ -199,7 +199,7 @@ public class PackingReportExcelService {
 
             sheet.setColumnWidth(notesCol, 30 * 256);
 
-            sheet.createFreezePane(7, 0);
+            sheet.createFreezePane(8, 0);
 
             sheet.getPrintSetup().setLandscape(true);
             sheet.getPrintSetup().setPaperSize(PrintSetup.A4_PAPERSIZE);

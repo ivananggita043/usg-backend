@@ -18,7 +18,7 @@ import lombok.RequiredArgsConstructor;
 @RequestMapping("/admin/lines")
 @RequiredArgsConstructor
 @PreAuthorize("hasRole('ADMIN')")
-public class LineControllerAdminController {
+public class LineAdminController {
 
     private final LineService lineService;
 
