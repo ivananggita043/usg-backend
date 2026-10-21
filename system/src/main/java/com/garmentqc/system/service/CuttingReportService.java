@@ -12,6 +12,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import org.springframework.security.authentication.AnonymousAuthenticationToken;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -19,9 +22,11 @@ import com.garmentqc.system.dto.CuttingGroupedReportResponse;
 import com.garmentqc.system.dto.CuttingReportResponse;
 import com.garmentqc.system.enums.CuttingPanel;
 import com.garmentqc.system.enums.CuttingProcessCheck;
+import com.garmentqc.system.exception.UnauthorizedException;
 import com.garmentqc.system.model.CuttingInspection;
 import com.garmentqc.system.model.CuttingInspectionDefect;
 import com.garmentqc.system.model.CuttingInspectionItem;
+import com.garmentqc.system.model.User;
 import com.garmentqc.system.repository.CuttingInspectionDefectRepository;
 import com.garmentqc.system.repository.CuttingInspectionItemRepository;
 import com.garmentqc.system.repository.CuttingInspectionRepository;
@@ -40,68 +45,70 @@ public class CuttingReportService {
 
         @Transactional(readOnly = true)
         public CuttingReportResponse getDailyReport(LocalDate date) {
+                validateReportAccess();
                 return generateReport("DAILY", date, date);
         }
 
         @Transactional(readOnly = true)
         public CuttingReportResponse getWeeklyReport(LocalDate date) {
+                validateReportAccess();
                 LocalDate startDate = getWeeklyStartDate(date);
                 LocalDate endDate = startDate.plusDays(6);
-
                 return generateReport("WEEKLY", startDate, endDate);
         }
 
         @Transactional(readOnly = true)
         public CuttingReportResponse getMonthlyReport(int year, int month) {
+                validateReportAccess();
                 LocalDate startDate = LocalDate.of(year, month, 1);
                 LocalDate endDate = startDate.withDayOfMonth(startDate.lengthOfMonth());
-
                 return generateReport("MONTHLY", startDate, endDate);
         }
 
         @Transactional(readOnly = true)
         public CuttingGroupedReportResponse getDailyBuyerReport(LocalDate date) {
+                validateReportAccess();
                 return generateGroupedReport("DAILY", date, date, false);
         }
 
         @Transactional(readOnly = true)
         public CuttingGroupedReportResponse getDailyStyleReport(LocalDate date) {
+                validateReportAccess();
                 return generateGroupedReport("DAILY", date, date, true);
         }
 
         @Transactional(readOnly = true)
         public CuttingGroupedReportResponse getWeeklyBuyerReport(LocalDate date) {
+                validateReportAccess();
                 LocalDate start = getWeeklyStartDate(date);
-
-                return generateGroupedReport(
-                                "WEEKLY", start, start.plusDays(6), false);
+                return generateGroupedReport("WEEKLY", start, start.plusDays(6), false);
         }
 
         @Transactional(readOnly = true)
         public CuttingGroupedReportResponse getWeeklyStyleReport(LocalDate date) {
+                validateReportAccess();
                 LocalDate start = getWeeklyStartDate(date);
-
-                return generateGroupedReport(
-                                "WEEKLY", start, start.plusDays(6), true);
+                return generateGroupedReport("WEEKLY", start, start.plusDays(6), true);
         }
 
         @Transactional(readOnly = true)
         public CuttingGroupedReportResponse getMonthlyBuyerReport(int year, int month) {
+                validateReportAccess();
                 LocalDate start = LocalDate.of(year, month, 1);
                 LocalDate end = start.withDayOfMonth(start.lengthOfMonth());
-
                 return generateGroupedReport("MONTHLY", start, end, false);
         }
 
         @Transactional(readOnly = true)
         public CuttingGroupedReportResponse getMonthlyStyleReport(int year, int month) {
+                validateReportAccess();
                 LocalDate start = LocalDate.of(year, month, 1);
                 LocalDate end = start.withDayOfMonth(start.lengthOfMonth());
-
                 return generateGroupedReport("MONTHLY", start, end, true);
         }
 
         private CuttingReportResponse generateReport(String reportType, LocalDate startDate, LocalDate endDate) {
+                validateReportAccess();
                 Instant start = startDate.atStartOfDay(ZONE_ID).toInstant();
                 Instant endExclusive = endDate.plusDays(1)
                                 .atStartOfDay(ZONE_ID)
@@ -149,7 +156,6 @@ public class CuttingReportService {
 
                                         itemDefects += quantity;
                                 }
-
                                 double itemPercentage = calculatePercentage(
                                                 itemDefects,
                                                 quantityInspect);
@@ -218,14 +224,13 @@ public class CuttingReportService {
                                 totalItems,
                                 totalQuantityInspect,
                                 totalDefects,
-                                calculatePercentage(
-                                                totalDefects,
-                                                totalQuantityInspect),
+                                calculatePercentage(totalDefects, totalQuantityInspect),
                                 processSummaries);
         }
 
         private CuttingGroupedReportResponse generateGroupedReport(String reportType, LocalDate startDate,
                         LocalDate endDate, boolean groupByStyle) {
+                validateReportAccess();
                 Instant start = startDate.atStartOfDay(ZONE_ID).toInstant();
                 Instant endExclusive = endDate.plusDays(1)
                                 .atStartOfDay(ZONE_ID)
@@ -348,6 +353,34 @@ public class CuttingReportService {
         private LocalDate getWeeklyStartDate(LocalDate date) {
                 int daysSinceFriday = (date.getDayOfWeek().getValue() - 5 + 7) % 7;
                 return date.minusDays(daysSinceFriday);
+        }
+
+        private void validateReportAccess() {
+                Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+
+                if (authentication == null
+                                || !authentication.isAuthenticated()
+                                || authentication instanceof AnonymousAuthenticationToken
+                                || !(authentication.getPrincipal() instanceof User currentUser)) {
+                        throw new UnauthorizedException("Autentikasi diperlukan");
+                }
+
+                if (currentUser.getRole() == null) {
+                        throw new UnauthorizedException("Role pengguna tidak valid");
+                }
+
+                String role = currentUser.getRole().name();
+                if ("SUPER_ADMIN".equals(role)) {
+                        return;
+                }
+
+                if ("ADMIN".equals(role) && currentUser.getSection() != null
+                                && "CUTTING".equals(currentUser.getSection().name())) {
+                        return;
+                }
+
+                throw new UnauthorizedException(
+                                "Hanya Admin CUTTING dan Super Admin yang dapat mengakses laporan cutting");
         }
 
 }

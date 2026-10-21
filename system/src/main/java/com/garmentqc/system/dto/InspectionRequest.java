@@ -28,6 +28,9 @@ public class InspectionRequest {
     @NotBlank
     private String lineId;
 
+    @Min(0)
+    private Integer qtyCheckCartonToday;
+
     @NotNull
     @Min(1)
     private Integer inspectedQuantity;

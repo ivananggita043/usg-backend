@@ -836,14 +836,12 @@ public class FinishingReportExcelService {
                                         9,
                                         true,
                                         HorizontalAlignment.CENTER);
-
+                                        
                         DataFormat format = workbook.createDataFormat();
 
-                        percent.setDataFormat(
-                                        format.getFormat("0.00%"));
-
-                        percentTotal.setDataFormat(
-                                        format.getFormat("0.00%"));
+                        percent.setDataFormat(format.getFormat("0.00%"));
+                        percentTotal.setDataFormat(format.getFormat("0.00%"));
+                        percentSummary.setDataFormat(format.getFormat("0.00%"));
                 }
 
                 private CellStyle style(Workbook workbook, Color background, short fontColor, int fontSize,

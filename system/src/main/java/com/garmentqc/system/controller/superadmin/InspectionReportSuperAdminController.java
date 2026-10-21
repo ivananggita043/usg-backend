@@ -1,10 +1,10 @@
-
-package com.garmentqc.system.controller;
+package com.garmentqc.system.controller.superadmin;
 
 import java.time.LocalDate;
 
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -19,9 +19,10 @@ import com.garmentqc.system.service.InspectionReportService;
 import lombok.RequiredArgsConstructor;
 
 @RestController
-@RequestMapping("/inspection/reports")
+@RequestMapping("/superadmin/inspection/reports")
 @RequiredArgsConstructor
-public class InspectionReportController {
+@PreAuthorize("hasRole('SUPER_ADMIN')")
+public class InspectionReportSuperAdminController {
 
         private final InspectionReportService reportService;
 
@@ -41,27 +42,6 @@ public class InspectionReportController {
 
         @GetMapping("/monthly")
         public ResponseEntity<InspectionReportResponse> getMonthlyReport(@RequestParam int year,
-                        @RequestParam int month, @RequestParam(required = false) String section,
-                        @AuthenticationPrincipal User currentUser) {
-                return ResponseEntity.ok(reportService.getMonthlyReport(year, month, section, currentUser));
-        }
-
-        @GetMapping("/daily/admin")
-        public ResponseEntity<InspectionReportResponse> getDailyReportAdmin(
-                        @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
-                        @RequestParam(required = false) String section, @AuthenticationPrincipal User currentUser) {
-                return ResponseEntity.ok(reportService.getDailyReport(date, section, currentUser));
-        }
-
-        @GetMapping("/weekly/admin")
-        public ResponseEntity<InspectionReportResponse> getWeeklyReportAdmin(
-                        @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
-                        @RequestParam(required = false) String section, @AuthenticationPrincipal User currentUser) {
-                return ResponseEntity.ok(reportService.getWeeklyReport(date, section, currentUser));
-        }
-
-        @GetMapping("/monthly/admin")
-        public ResponseEntity<InspectionReportResponse> getMonthlyReportAdmin(@RequestParam int year,
                         @RequestParam int month, @RequestParam(required = false) String section,
                         @AuthenticationPrincipal User currentUser) {
                 return ResponseEntity.ok(reportService.getMonthlyReport(year, month, section, currentUser));
@@ -88,27 +68,6 @@ public class InspectionReportController {
                 return ResponseEntity.ok(reportService.getMonthlyBuyerReport(year, month, section, currentUser));
         }
 
-        @GetMapping("/buyers/daily/admin")
-        public ResponseEntity<InspectionGroupedReportResponse> getDailyBuyerReportAdmin(
-                        @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
-                        @RequestParam(required = false) String section, @AuthenticationPrincipal User currentUser) {
-                return ResponseEntity.ok(reportService.getDailyBuyerReport(date, section, currentUser));
-        }
-
-        @GetMapping("/buyers/weekly/admin")
-        public ResponseEntity<InspectionGroupedReportResponse> getWeeklyBuyerReportAdmin(
-                        @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
-                        @RequestParam(required = false) String section, @AuthenticationPrincipal User currentUser) {
-                return ResponseEntity.ok(reportService.getWeeklyBuyerReport(date, section, currentUser));
-        }
-
-        @GetMapping("/buyers/monthly/admin")
-        public ResponseEntity<InspectionGroupedReportResponse> getMonthlyBuyerReportAdmin(@RequestParam int year,
-                        @RequestParam int month, @RequestParam(required = false) String section,
-                        @AuthenticationPrincipal User currentUser) {
-                return ResponseEntity.ok(reportService.getMonthlyBuyerReport(year, month, section, currentUser));
-        }
-
         @GetMapping("/styles/daily")
         public ResponseEntity<InspectionGroupedReportResponse> getDailyStyleReport(
                         @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
@@ -120,34 +79,15 @@ public class InspectionReportController {
         public ResponseEntity<InspectionGroupedReportResponse> getWeeklyStyleReport(
                         @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
                         @RequestParam(required = false) String section, @AuthenticationPrincipal User currentUser) {
-                return ResponseEntity.ok(reportService.getWeeklyStyleReport(date, section, currentUser));
+                return ResponseEntity.ok(
+                                reportService.getWeeklyStyleReport(date, section, currentUser));
         }
 
         @GetMapping("/styles/monthly")
         public ResponseEntity<InspectionGroupedReportResponse> getMonthlyStyleReport(@RequestParam int year,
                         @RequestParam int month, @RequestParam(required = false) String section,
                         @AuthenticationPrincipal User currentUser) {
-                return ResponseEntity.ok(reportService.getMonthlyStyleReport(year, month, section, currentUser));
-        }
-
-        @GetMapping("/styles/daily/admin")
-        public ResponseEntity<InspectionGroupedReportResponse> getDailyStyleReportAdmin(
-                        @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
-                        @RequestParam(required = false) String section, @AuthenticationPrincipal User currentUser) {
-                return ResponseEntity.ok(reportService.getDailyStyleReport(date, section, currentUser));
-        }
-
-        @GetMapping("/styles/weekly/admin")
-        public ResponseEntity<InspectionGroupedReportResponse> getWeeklyStyleReportAdmin(
-                        @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
-                        @RequestParam(required = false) String section, @AuthenticationPrincipal User currentUser) {
-                return ResponseEntity.ok(reportService.getWeeklyStyleReport(date, section, currentUser));
-        }
-
-        @GetMapping("/styles/monthly/admin")
-        public ResponseEntity<InspectionGroupedReportResponse> getMonthlyStyleReportAdmin(@RequestParam int year,
-                        @RequestParam int month, @RequestParam(required = false) String section,
-                        @AuthenticationPrincipal User currentUser) {
-                return ResponseEntity.ok(reportService.getMonthlyStyleReport(year, month, section, currentUser));
+                return ResponseEntity.ok(
+                                reportService.getMonthlyStyleReport(year, month, section, currentUser));
         }
 }

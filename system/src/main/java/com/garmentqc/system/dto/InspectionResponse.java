@@ -28,6 +28,10 @@ public class InspectionResponse {
 
     private Double defectPercentage;
 
+    private Integer goodQc;
+
+    private Integer qtyCheckCartonToday;
+
     private Integer transferQuantity;
 
     private String comment;

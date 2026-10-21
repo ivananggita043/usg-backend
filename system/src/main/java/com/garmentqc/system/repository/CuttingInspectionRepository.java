@@ -15,4 +15,6 @@ public interface CuttingInspectionRepository extends JpaRepository<CuttingInspec
 
     Page<CuttingInspection> findAll(Pageable pageable);
 
+    List<CuttingInspection> findBySubmittedById(String submittedById);
+
 }

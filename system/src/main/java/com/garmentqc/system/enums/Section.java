@@ -5,5 +5,6 @@ public enum Section {
     SEWING,
     WASHING,
     FINISHING,
-    PACKING
+    PACKING,
+    FINAL
 }

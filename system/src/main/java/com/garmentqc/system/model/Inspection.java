@@ -62,6 +62,10 @@ public class Inspection extends BaseEntity {
     @Column(name = "process", length = 20)
     private String process;
 
+    @Min(0)
+    @Column(name = "qty_check_carton_today")
+    private Integer qtyCheckCartonToday;
+
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "submitted_by", nullable = false)
     private User submittedBy;

@@ -21,7 +21,7 @@ public class CreateUserRequest {
     @NotBlank(message = "Username wajib diisi")
     private String username;
 
-    @Size(max = 30, message = "NIK maksimal 30 karakter")
+    @NotBlank @Size(max = 30, message = "NIK maksimal 30 karakter")
     private String nik;
 
     @NotNull(message = "Role wajib dipilih")

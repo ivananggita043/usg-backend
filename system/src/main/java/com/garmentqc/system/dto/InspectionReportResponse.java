@@ -24,6 +24,8 @@ public class InspectionReportResponse {
 
     private long totalDefects;
 
+    private long goodQc;
+
     private double defectPercentage;
 
     private List<SectionSummary> sectionSummaries;
@@ -47,6 +49,8 @@ public class InspectionReportResponse {
 
         private long totalDefects;
 
+        private long goodQc;
+
         private double defectPercentage;
     }
 
@@ -68,6 +72,8 @@ public class InspectionReportResponse {
 
         private long totalDefects;
 
+        private long goodQc;
+
         private double defectPercentage;
     }
 
@@ -78,7 +84,7 @@ public class InspectionReportResponse {
         private String defectTypeId;
 
         private String defectTypeName;
-
+        
         private long totalDefects;
     }
 
@@ -95,6 +101,8 @@ public class InspectionReportResponse {
         private long totalTransferQuantity;
 
         private long totalDefects;
+
+        private long goodQc;
 
         private double defectPercentage;
     }

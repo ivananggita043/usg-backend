@@ -40,26 +40,15 @@ public class InspectionReportService {
         private static final Set<String> ALLOWED_SECTIONS = Set.of(
                         "SEWING",
                         "FINISHING",
-                        "WASHING");
+                        "WASHING",
+                        "PACKING");
 
         private final InspectionRepository inspectionRepository;
-
-        public InspectionReportResponse getDailyReport(LocalDate date, String section) {
-                validateDate(date);
-                return generateReport("DAILY", date, date, section, null);
-        }
 
         public InspectionReportResponse getDailyReport(LocalDate date, String section, User currentUser) {
                 validateDate(date);
                 String authorizedSection = resolveSectionForUser(currentUser, section);
                 return generateReport("DAILY", date, date, authorizedSection, currentUser);
-        }
-
-        public InspectionReportResponse getWeeklyReport(LocalDate date, String section) {
-                validateDate(date);
-                LocalDate startDate = date.with(java.time.DayOfWeek.FRIDAY);
-                LocalDate endDate = startDate.plusDays(6);
-                return generateReport("WEEKLY", startDate, endDate, section, null);
         }
 
         public InspectionReportResponse getWeeklyReport(LocalDate date, String section, User currentUser) {
@@ -70,12 +59,6 @@ public class InspectionReportService {
                 return generateReport("WEEKLY", startDate, endDate, authorizedSection, currentUser);
         }
 
-        public InspectionReportResponse getMonthlyReport(int year, int month, String section) {
-                LocalDate startDate = getMonthStart(year, month);
-                LocalDate endDate = startDate.withDayOfMonth(startDate.lengthOfMonth());
-                return generateReport("MONTHLY", startDate, endDate, section, null);
-        }
-
         public InspectionReportResponse getMonthlyReport(int year, int month, String section, User currentUser) {
                 LocalDate startDate = getMonthStart(year, month);
                 LocalDate endDate = startDate.withDayOfMonth(startDate.lengthOfMonth());
@@ -83,22 +66,10 @@ public class InspectionReportService {
                 return generateReport("MONTHLY", startDate, endDate, authorizedSection, currentUser);
         }
 
-        public InspectionGroupedReportResponse getDailyBuyerReport(LocalDate date, String section) {
-                validateDate(date);
-                return generateGroupedReport("DAILY", date, date, section, true, null);
-        }
-
         public InspectionGroupedReportResponse getDailyBuyerReport(LocalDate date, String section, User currentUser) {
                 validateDate(date);
                 String authorizedSection = resolveSectionForUser(currentUser, section);
                 return generateGroupedReport("DAILY", date, date, authorizedSection, true, currentUser);
-        }
-
-        public InspectionGroupedReportResponse getWeeklyBuyerReport(LocalDate date, String section) {
-                validateDate(date);
-                LocalDate startDate = date.with(java.time.DayOfWeek.FRIDAY);
-                LocalDate endDate = startDate.plusDays(6);
-                return generateGroupedReport("WEEKLY", startDate, endDate, section, true, null);
         }
 
         public InspectionGroupedReportResponse getWeeklyBuyerReport(LocalDate date, String section, User currentUser) {
@@ -109,12 +80,6 @@ public class InspectionReportService {
                 return generateGroupedReport("WEEKLY", startDate, endDate, authorizedSection, true, currentUser);
         }
 
-        public InspectionGroupedReportResponse getMonthlyBuyerReport(int year, int month, String section) {
-                LocalDate startDate = getMonthStart(year, month);
-                LocalDate endDate = startDate.withDayOfMonth(startDate.lengthOfMonth());
-                return generateGroupedReport("MONTHLY", startDate, endDate, section, true, null);
-        }
-
         public InspectionGroupedReportResponse getMonthlyBuyerReport(int year, int month, String section,
                         User currentUser) {
                 LocalDate startDate = getMonthStart(year, month);
@@ -123,22 +88,10 @@ public class InspectionReportService {
                 return generateGroupedReport("MONTHLY", startDate, endDate, authorizedSection, true, currentUser);
         }
 
-        public InspectionGroupedReportResponse getDailyStyleReport(LocalDate date, String section) {
-                validateDate(date);
-                return generateGroupedReport("DAILY", date, date, section, false, null);
-        }
-
         public InspectionGroupedReportResponse getDailyStyleReport(LocalDate date, String section, User currentUser) {
                 validateDate(date);
                 String authorizedSection = resolveSectionForUser(currentUser, section);
                 return generateGroupedReport("DAILY", date, date, authorizedSection, false, currentUser);
-        }
-
-        public InspectionGroupedReportResponse getWeeklyStyleReport(LocalDate date, String section) {
-                validateDate(date);
-                LocalDate startDate = date.with(java.time.DayOfWeek.FRIDAY);
-                LocalDate endDate = startDate.plusDays(6);
-                return generateGroupedReport("WEEKLY", startDate, endDate, section, false, null);
         }
 
         public InspectionGroupedReportResponse getWeeklyStyleReport(LocalDate date, String section, User currentUser) {
@@ -147,12 +100,6 @@ public class InspectionReportService {
                 LocalDate endDate = startDate.plusDays(6);
                 String authorizedSection = resolveSectionForUser(currentUser, section);
                 return generateGroupedReport("WEEKLY", startDate, endDate, authorizedSection, false, currentUser);
-        }
-
-        public InspectionGroupedReportResponse getMonthlyStyleReport(int year, int month, String section) {
-                LocalDate startDate = getMonthStart(year, month);
-                LocalDate endDate = startDate.withDayOfMonth(startDate.lengthOfMonth());
-                return generateGroupedReport("MONTHLY", startDate, endDate, section, false, null);
         }
 
         public InspectionGroupedReportResponse getMonthlyStyleReport(int year, int month, String section,
@@ -169,39 +116,23 @@ public class InspectionReportService {
                 }
 
                 String role = currentUser.getRole().name();
+
+                // Super Admin boleh memilih section atau melihat semua section
                 if ("SUPER_ADMIN".equals(role)) {
                         return normalizeSection(requestedSection);
                 }
 
+                // Admin otomatis menggunakan section miliknya
                 if ("ADMIN".equals(role)) {
-                        return resolveOwnSection(currentUser, requestedSection, "Admin");
+                        if (currentUser.getSection() == null) {
+                                throw new AccessDeniedException("Admin belum memiliki section");
+                        }
+
+                        return currentUser.getSection().name();
                 }
 
-                if ("USER".equals(role)) {
-                        return resolveOwnSection(currentUser, requestedSection, "User/QC");
-                }
-
-                throw new AccessDeniedException("Role tidak diizinkan mengakses laporan ini");
-        }
-
-        private String resolveOwnSection(User currentUser, String requestedSection, String roleLabel) {
-                if (currentUser.getSection() == null) {
-                        throw new AccessDeniedException(roleLabel + " belum memiliki section");
-                }
-
-                String ownSection = currentUser.getSection().name();
-
-                if (requestedSection == null || requestedSection.isBlank()) {
-                        return ownSection;
-                }
-
-                String requested = requestedSection.trim().toUpperCase(Locale.ROOT);
-
-                if ("ALL".equals(requested) || !ownSection.equals(requested)) {
-                        throw new AccessDeniedException(
-                                        roleLabel + " hanya dapat mengakses section " + ownSection);
-                }
-                return ownSection;
+                throw new AccessDeniedException(
+                                "Hanya Admin dan Super Admin yang dapat mengakses laporan");
         }
 
         private InspectionReportResponse generateReport(String reportType, LocalDate startDate, LocalDate endDate,
@@ -296,6 +227,7 @@ public class InspectionReportService {
                                                 item.totalQuantityInspect,
                                                 item.totalTransferQuantity,
                                                 item.totalDefects,
+                                                item.totalQuantityInspect - item.totalDefects,
                                                 calculatePercentage(
                                                                 item.totalDefects,
                                                                 item.totalQuantityInspect))));
@@ -310,6 +242,7 @@ public class InspectionReportService {
                                                 item.totalQuantityInspect,
                                                 item.totalTransferQuantity,
                                                 item.totalDefects,
+                                                item.totalQuantityInspect - item.totalDefects,
                                                 calculatePercentage(
                                                                 item.totalDefects,
                                                                 item.totalQuantityInspect))));
@@ -345,6 +278,7 @@ public class InspectionReportService {
                                 totalQuantityInspect,
                                 totalTransferQuantity,
                                 totalDefects,
+                                totalQuantityInspect - totalDefects,
                                 calculatePercentage(totalDefects, totalQuantityInspect),
                                 sectionResults,
                                 lineResults,
@@ -430,27 +364,34 @@ public class InspectionReportService {
                                 summaries);
         }
 
-        private boolean canViewInspection(Inspection inspection, User currentUser) {
-                if (currentUser == null) {
-                        return true;
-                }
+        private boolean canViewInspection(
+                        Inspection inspection,
+                        User currentUser) {
 
-                if (currentUser.getRole() == null) {
-                        throw new AccessDeniedException("User tidak memiliki akses");
+                if (currentUser == null || currentUser.getRole() == null) {
+                        throw new AccessDeniedException(
+                                        "User tidak memiliki akses");
                 }
 
                 String role = currentUser.getRole().name();
 
-                if ("USER".equals(role)) {
-
-                        User submittedBy = inspection.getSubmittedBy();
-
-                        return submittedBy != null
-                                        && currentUser.getId() != null
-                                        && currentUser.getId().equals(submittedBy.getId());
+                // Super Admin dapat melihat semua inspection
+                if ("SUPER_ADMIN".equals(role)) {
+                        return true;
                 }
 
-                return true;
+                // Admin hanya dapat melihat inspection dari section sendiri
+                if ("ADMIN".equals(role)) {
+                        return currentUser.getSection() != null
+                                        && inspection.getLine() != null
+                                        && inspection.getLine().getSection() != null
+                                        && currentUser.getSection()
+                                                        .equals(inspection.getLine().getSection());
+                }
+
+                // User/QC tidak boleh mengakses laporan
+                throw new AccessDeniedException(
+                                "User/QC tidak diizinkan mengakses laporan");
         }
 
         private LocalDate getMonthStart(int year, int month) {
@@ -494,9 +435,9 @@ public class InspectionReportService {
                 if ("ALL".equals(normalized)) {
                         return null;
                 }
-
                 if (!ALLOWED_SECTIONS.contains(normalized)) {
-                        throw new BadRequestException("Section harus SEWING, FINISHING, WASHING, atau ALL");
+                        throw new BadRequestException(
+                                        "Section harus SEWING, FINISHING, WASHING, PACKING, atau ALL");
                 }
                 return normalized;
         }
@@ -607,6 +548,7 @@ public class InspectionReportService {
                                                         slotTotalQuantityInspect,
                                                         slotTotalTransferQuantity,
                                                         slotTotalDefects,
+                                                        slotTotalQuantityInspect - slotTotalDefects,
                                                         calculatePercentage(
                                                                         slotTotalDefects,
                                                                         slotTotalQuantityInspect));

@@ -49,10 +49,8 @@ public class SecurityConfig {
                                                 .requestMatchers(
                                                                 "/swagger-ui/**",
                                                                 "/v3/api-docs/**",
-                                                                "/users/**",
                                                                 "/auth/**",
-                                                                "/lines/**",
-                                                                "/inspections/**")
+                                                                "/api/debug/database/**")
                                                 .permitAll()
                                                 .anyRequest().authenticated())
                                 .addFilterBefore(
