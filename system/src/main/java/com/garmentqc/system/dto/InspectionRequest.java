@@ -3,6 +3,8 @@ package com.garmentqc.system.dto;
 import java.util.ArrayList;
 import java.util.List;
 
+import com.garmentqc.system.enums.WashingType;
+
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
@@ -48,6 +50,8 @@ public class InspectionRequest {
     private String grade;
 
     private String process;
+
+    private WashingType washingType;
 
     @Valid
     private List<InspectionDefectRequest> defects = new ArrayList<>();

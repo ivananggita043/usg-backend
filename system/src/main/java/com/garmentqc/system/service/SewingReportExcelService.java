@@ -526,7 +526,6 @@ public class SewingReportExcelService {
         }
     }
 
-    @SuppressWarnings("unused")
     private static void applyBorders(CellStyle style) {
         style.setBorderBottom(BorderStyle.THIN);
         style.setBorderTop(BorderStyle.THIN);

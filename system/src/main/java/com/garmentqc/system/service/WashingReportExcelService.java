@@ -38,13 +38,28 @@ public class WashingReportExcelService {
 
         private static final ZoneId ZONE_ID = ZoneId.of("Asia/Jakarta");
         private static final String WASHING = "WASHING";
+        private static final String BULK = "BULK";
+        private static final String REPAIR = "REPAIR";
+
         private static final DateTimeFormatter DATE_FORMAT = DateTimeFormatter.ofPattern("dd MMMM yyyy",
                         Locale.ENGLISH);
+
+        private static final int LABEL_COLUMN = 0;
+
         private final InspectionRepository inspectionRepository;
         private final InspectionReportService inspectionReportService;
 
-        public byte[] exportDailyWashingExcel(LocalDate date, User currentUser) throws IOException {
-                String section = inspectionReportService.resolveSectionForUser(currentUser, WASHING);
+        public byte[] exportDailyWashingExcel(
+                        LocalDate date,
+                        User currentUser) throws IOException {
+
+                if (date == null) {
+                        throw new com.garmentqc.system.exception.BadRequestException(
+                                        "Tanggal laporan wajib diisi");
+                }
+
+                String section = inspectionReportService.resolveSectionForUser(
+                                currentUser, WASHING);
 
                 Instant start = date.atStartOfDay(ZONE_ID).toInstant();
                 Instant end = date.plusDays(1).atStartOfDay(ZONE_ID).toInstant();
@@ -52,209 +67,185 @@ public class WashingReportExcelService {
                 List<Inspection> inspections = inspectionRepository
                                 .findByCreatedAtGreaterThanEqualAndCreatedAtLessThan(start, end)
                                 .stream()
-                                .filter(i -> i.getLine() != null && i.getLine().getSection() != null)
-                                .filter(i -> WASHING.equals(i.getLine().getSection().name()))
-                                .filter(i -> section == null || section.isBlank() || section.equalsIgnoreCase(WASHING))
+                                .filter(i -> i.getLine() != null
+                                                && i.getLine().getSection() != null)
+                                .filter(i -> WASHING.equals(
+                                                i.getLine().getSection().name()))
+                                .filter(i -> section == null
+                                                || section.isBlank()
+                                                || section.equalsIgnoreCase(WASHING))
                                 .filter(i -> canViewInspection(i, currentUser))
-                                .sorted(Comparator.comparing(Inspection::getCreatedAt,
+                                .sorted(Comparator.comparing(
+                                                Inspection::getCreatedAt,
                                                 Comparator.nullsLast(Comparator.naturalOrder())))
                                 .collect(Collectors.toList());
 
-                Map<ProductionKey, InspectionData> groupedData = new LinkedHashMap<>();
-                for (Inspection inspection : inspections) {
-                        ProductionKey key = new ProductionKey(
-                                        safe(inspection.getBuyerName()),
-                                        safe(inspection.getStyleCode()),
-                                        safe(inspection.getColorName()));
+                Map<ProductionKey, InspectionData> bulkGrouped = groupProduction(inspections, BULK);
 
-                        InspectionData data = groupedData.computeIfAbsent(
-                                        key, ignored -> new InspectionData());
-                        data.add(InspectionData.from(inspection));
-                }
+                Map<ProductionKey, InspectionData> repairGrouped = groupProduction(inspections, REPAIR);
 
-                List<InspectionData> allData = new ArrayList<>(groupedData.values());
-                List<InspectionData> columns = new ArrayList<>();
+                List<InspectionData> bulkColumns = buildColumns(bulkGrouped);
+                List<InspectionData> repairColumns = buildColumns(repairGrouped);
 
-                for (int i = 0; i < 5; i++) {
-                        columns.add(i < allData.size()
-                                        ? allData.get(i)
-                                        : new InspectionData());
-                }
+                Layout layout = new Layout(
+                                bulkColumns.size(), repairColumns.size());
 
-                InspectionData dll = new InspectionData();
-
-                for (int i = 5; i < allData.size(); i++) {
-                        dll.add(allData.get(i));
-                }
-
-                columns.add(dll);
                 try (
                                 Workbook workbook = new org.apache.poi.xssf.usermodel.XSSFWorkbook();
                                 ByteArrayOutputStream output = new ByteArrayOutputStream()) {
 
                         Sheet sheet = workbook.createSheet("Daily Washing Report");
                         Styles styles = new Styles(workbook);
-                        final int totalColumn = 7;
 
                         createMergedRow(
-                                        sheet, 0, 0, totalColumn,
+                                        sheet, 0, 0, layout.lastColumn(),
                                         "PT UNGARAN SARI GARMENT", styles.title);
 
                         createMergedRow(
-                                        sheet, 1, 0, totalColumn,
+                                        sheet, 1, 0, layout.lastColumn(),
                                         "DAILY REPORT WASHING SECTION", styles.subtitle);
 
                         createMergedRow(
-                                        sheet, 2, 0, totalColumn,
+                                        sheet, 2, 0, layout.lastColumn(),
                                         "QC DEPARTEMENT", styles.subtitle);
 
                         createMergedRow(
-                                        sheet, 3, 0, totalColumn,
+                                        sheet, 3, 0, layout.lastColumn(),
                                         "DEPT: DRESS 2", styles.subtitle);
 
                         createMergedRow(
-                                        sheet, 4, 0, totalColumn,
+                                        sheet, 4, 0, layout.lastColumn(),
                                         "REPORT DATE: " + date.format(DATE_FORMAT),
                                         styles.period);
 
                         int rowIndex = 5;
+
                         int infoStartRow = rowIndex;
 
                         rowIndex = writeInfoRow(
                                         sheet, rowIndex, "BUYER",
-                                        columns, InspectionData::getBuyers,
-                                        totalColumn, styles);
+                                        bulkColumns, repairColumns, layout,
+                                        InspectionData::getBuyers, styles);
 
                         rowIndex = writeInfoRow(
                                         sheet, rowIndex, "STYLE",
-                                        columns, InspectionData::getStyles,
-                                        totalColumn, styles);
+                                        bulkColumns, repairColumns, layout,
+                                        InspectionData::getStyles, styles);
 
                         rowIndex = writeInfoRow(
                                         sheet, rowIndex, "COLOR",
-                                        columns, InspectionData::getColors,
-                                        totalColumn, styles);
-
-                        rowIndex = writeInfoRow(
-                                        sheet, rowIndex, "PROCESS",
-                                        columns, InspectionData::getProcesses,
-                                        totalColumn, styles);
+                                        bulkColumns, repairColumns, layout,
+                                        InspectionData::getColors, styles);
 
                         rowIndex = writeInfoRow(
                                         sheet, rowIndex, "HANDFEEL",
-                                        columns, InspectionData::getHandfeels,
-                                        totalColumn, styles);
+                                        bulkColumns, repairColumns, layout,
+                                        InspectionData::getHandfeels, styles);
 
                         rowIndex = writeInfoRow(
                                         sheet, rowIndex, "GRADE",
-                                        columns, InspectionData::getGrades,
-                                        totalColumn, styles);
+                                        bulkColumns, repairColumns, layout,
+                                        InspectionData::getGrades, styles);
 
-                        sheet.getRow(infoStartRow)
-                                        .getCell(totalColumn)
-                                        .setCellValue("TOTAL");
-
-                        sheet.addMergedRegion(new CellRangeAddress(
-                                        infoStartRow, rowIndex - 1,
-                                        totalColumn, totalColumn));
+                        mergeTotalInfoColumns(
+                                        sheet, infoStartRow, rowIndex - 1, layout, styles);
 
                         rowIndex = writeDefectSection(
                                         sheet, rowIndex,
                                         "DEFECT DETAILS - SEWING",
-                                        columns, totalColumn, styles,
+                                        bulkColumns, repairColumns, layout, styles,
                                         InspectionData::getSewingDefects);
 
                         rowIndex = writeSummaryRow(
                                         sheet, rowIndex,
                                         "TOTAL DEF SEWING",
-                                        columns, InspectionData::getSewingDefectTotal,
-                                        totalColumn, styles);
+                                        bulkColumns, repairColumns, layout,
+                                        InspectionData::getSewingDefectTotal, styles);
 
                         rowIndex = writePercentageRow(
                                         sheet, rowIndex,
                                         "% DEFECT SEWING",
-                                        columns, InspectionData::getSewingDefectTotal,
-                                        totalColumn, styles);
+                                        bulkColumns, repairColumns, layout,
+                                        InspectionData::getSewingDefectTotal, styles);
 
                         rowIndex = writeDefectSection(
                                         sheet, rowIndex,
                                         "DEFECT DETAILS - WASHING",
-                                        columns, totalColumn, styles,
+                                        bulkColumns, repairColumns, layout, styles,
                                         InspectionData::getWashingDefects);
 
                         rowIndex = writeSummaryRow(
                                         sheet, rowIndex,
                                         "TOTAL DEF WASHING",
-                                        columns, InspectionData::getWashingDefectTotal,
-                                        totalColumn, styles);
+                                        bulkColumns, repairColumns, layout,
+                                        InspectionData::getWashingDefectTotal, styles);
 
                         rowIndex = writePercentageRow(
                                         sheet, rowIndex,
                                         "% DEFECT WASHING",
-                                        columns, InspectionData::getWashingDefectTotal,
-                                        totalColumn, styles);
+                                        bulkColumns, repairColumns, layout,
+                                        InspectionData::getWashingDefectTotal, styles);
 
                         rowIndex = writeDefectSection(
                                         sheet, rowIndex,
                                         "DEFECT DETAILS - FINISHING",
-                                        columns, totalColumn, styles,
+                                        bulkColumns, repairColumns, layout, styles,
                                         InspectionData::getFinishingDefects);
 
                         rowIndex = writeSummaryRow(
                                         sheet, rowIndex,
                                         "TOTAL DEF FINISHING",
-                                        columns, InspectionData::getFinishingDefectTotal,
-                                        totalColumn, styles);
+                                        bulkColumns, repairColumns, layout,
+                                        InspectionData::getFinishingDefectTotal, styles);
 
                         rowIndex = writePercentageRow(
                                         sheet, rowIndex,
                                         "% DEFECT FINISHING",
-                                        columns, InspectionData::getFinishingDefectTotal,
-                                        totalColumn, styles);
+                                        bulkColumns, repairColumns, layout,
+                                        InspectionData::getFinishingDefectTotal, styles);
 
                         rowIndex = writeSummaryRow(
                                         sheet, rowIndex,
                                         "TOTAL DEFECT",
-                                        columns, InspectionData::getTotalDefect,
-                                        totalColumn, styles);
+                                        bulkColumns, repairColumns, layout,
+                                        InspectionData::getTotalDefect, styles);
 
                         rowIndex = writePercentageRow(
                                         sheet, rowIndex,
                                         "% TOTAL DEFECT",
-                                        columns, InspectionData::getTotalDefect,
-                                        totalColumn, styles);
+                                        bulkColumns, repairColumns, layout,
+                                        InspectionData::getTotalDefect, styles);
 
                         rowIndex = writeSummaryRow(
                                         sheet, rowIndex,
                                         "QTY INSPECT",
-                                        columns, InspectionData::getInspectQuantity,
-                                        totalColumn, styles);
+                                        bulkColumns, repairColumns, layout,
+                                        InspectionData::getInspectQuantity, styles);
 
                         rowIndex = writePercentageRow(
                                         sheet, rowIndex,
                                         "% DEFECT",
-                                        columns, InspectionData::getTotalDefect,
-                                        totalColumn, styles);
+                                        bulkColumns, repairColumns, layout,
+                                        InspectionData::getTotalDefect, styles);
 
                         rowIndex = writeSummaryRow(
                                         sheet, rowIndex,
                                         "GOOD QC/INSP-DEF",
-                                        columns, InspectionData::getGoodQuantity,
-                                        totalColumn, styles);
+                                        bulkColumns, repairColumns, layout,
+                                        InspectionData::getGoodQuantity, styles);
 
                         writeSummaryRow(
                                         sheet, rowIndex,
                                         "QTY TRANSFER",
-                                        columns, InspectionData::getTransferQuantity,
-                                        totalColumn, styles);
+                                        bulkColumns, repairColumns, layout,
+                                        InspectionData::getTransferQuantity, styles);
 
-                        sheet.setColumnWidth(0, 36 * 256);
+                        sheet.setColumnWidth(LABEL_COLUMN, 30 * 256);
 
-                        for (int c = 1; c <= 6; c++) {
-                                sheet.setColumnWidth(c, 16 * 256);
+                        for (int c = layout.bulkStart(); c <= layout.lastColumn(); c++) {
+                                sheet.setColumnWidth(c, 14 * 256);
                         }
 
-                        sheet.setColumnWidth(totalColumn, 16 * 256);
                         sheet.createFreezePane(1, 5);
 
                         sheet.getPrintSetup().setLandscape(true);
@@ -265,8 +256,8 @@ public class WashingReportExcelService {
                         sheet.setPrintGridlines(false);
                         sheet.setHorizontallyCenter(true);
 
-                        sheet.setMargin(PageMargin.LEFT, 0.35);
-                        sheet.setMargin(PageMargin.RIGHT, 0.35);
+                        sheet.setMargin(PageMargin.LEFT, 0.25);
+                        sheet.setMargin(PageMargin.RIGHT, 0.25);
                         sheet.setMargin(PageMargin.TOP, 0.5);
                         sheet.setMargin(PageMargin.BOTTOM, 0.5);
 
@@ -275,7 +266,49 @@ public class WashingReportExcelService {
                 }
         }
 
-        private boolean canViewInspection(Inspection inspection, User currentUser) {
+        private Map<ProductionKey, InspectionData> groupProduction(
+                        List<Inspection> inspections,
+                        String washingType) {
+
+                Map<ProductionKey, InspectionData> grouped = new LinkedHashMap<>();
+
+                for (Inspection inspection : inspections) {
+                        if (inspection.getWashingType() == null
+                                        || !washingType.equals(
+                                                        inspection.getWashingType().name())) {
+                                continue;
+                        }
+
+                        ProductionKey key = new ProductionKey(
+                                        safe(inspection.getBuyerName()),
+                                        safe(inspection.getStyleCode()),
+                                        safe(inspection.getColorName()));
+
+                        InspectionData data = grouped.computeIfAbsent(
+                                        key, ignored -> new InspectionData());
+
+                        data.add(InspectionData.from(inspection));
+                }
+
+                return grouped;
+        }
+
+        private List<InspectionData> buildColumns(
+                        Map<ProductionKey, InspectionData> grouped) {
+
+                List<InspectionData> columns = new ArrayList<>(grouped.values());
+
+                if (columns.isEmpty()) {
+                        columns.add(new InspectionData());
+                }
+
+                return columns;
+        }
+
+        private boolean canViewInspection(
+                        Inspection inspection,
+                        User currentUser) {
+
                 if (currentUser == null || currentUser.getRole() == null) {
                         return false;
                 }
@@ -293,29 +326,118 @@ public class WashingReportExcelService {
                                                 inspection.getSubmittedBy().getId());
         }
 
-        private int writeInfoRow(Sheet sheet, int rowIndex, String label, List<InspectionData> columns,
-                        Function<InspectionData, String> getter, int totalColumn, Styles styles) {
-                Row row = sheet.createRow(rowIndex++);
+        private void mergeTotalInfoColumns(
+                        Sheet sheet,
+                        int firstRow,
+                        int lastRow,
+                        Layout layout,
+                        Styles styles) {
 
-                setCell(row, 0, label, styles.headerLabel);
+                mergeTotalColumn(
+                                sheet, firstRow, lastRow,
+                                layout.bulkTotal(), "TOTAL BULK", styles);
 
-                for (int c = 0; c < 6; c++) {
-                        String value = c < columns.size()
-                                        ? getter.apply(columns.get(c))
-                                        : "";
+                mergeTotalColumn(
+                                sheet, firstRow, lastRow,
+                                layout.bulkPct(), "% BULK", styles);
 
-                        setCell(row, c + 1, value, styles.header);
+                mergeTotalColumn(
+                                sheet, firstRow, lastRow,
+                                layout.repairTotal(), "TOTAL REPAIR", styles);
+
+                mergeTotalColumn(
+                                sheet, firstRow, lastRow,
+                                layout.repairPct(), "% REPAIR", styles);
+
+                mergeTotalColumn(
+                                sheet, firstRow, lastRow,
+                                layout.grandTotal(), "TOTAL", styles);
+        }
+
+        private void mergeTotalColumn(
+                        Sheet sheet,
+                        int firstRow,
+                        int lastRow,
+                        int column,
+                        String label,
+                        Styles styles) {
+
+                for (int r = firstRow; r <= lastRow; r++) {
+                        Row row = sheet.getRow(r);
+
+                        if (row == null) {
+                                row = sheet.createRow(r);
+                        }
+
+                        Cell cell = row.getCell(column);
+
+                        if (cell == null) {
+                                cell = row.createCell(column);
+                        }
+
+                        cell.setCellStyle(styles.header);
+                        cell.setCellValue("");
                 }
 
-                setCell(row, totalColumn, "", styles.header);
+                if (firstRow < lastRow) {
+                        sheet.addMergedRegion(new CellRangeAddress(
+                                        firstRow, lastRow, column, column));
+                }
+
+                sheet.getRow(firstRow)
+                                .getCell(column)
+                                .setCellValue(label);
+        }
+
+        private int writeInfoRow(
+                        Sheet sheet,
+                        int rowIndex,
+                        String label,
+                        List<InspectionData> bulkColumns,
+                        List<InspectionData> repairColumns,
+                        Layout layout,
+                        Function<InspectionData, String> getter,
+                        Styles styles) {
+
+                Row row = sheet.createRow(rowIndex++);
+
+                setCell(row, LABEL_COLUMN, label, styles.headerLabel);
+
+                for (int i = 0; i < bulkColumns.size(); i++) {
+                        setCell(
+                                        row, layout.bulkStart() + i,
+                                        getter.apply(bulkColumns.get(i)),
+                                        styles.header);
+                }
+
+                for (int i = 0; i < repairColumns.size(); i++) {
+                        setCell(
+                                        row, layout.repairStart() + i,
+                                        getter.apply(repairColumns.get(i)),
+                                        styles.header);
+                }
+
+                setCell(row, layout.bulkTotal(), "", styles.header);
+                setCell(row, layout.bulkPct(), "", styles.header);
+                setCell(row, layout.repairTotal(), "", styles.header);
+                setCell(row, layout.repairPct(), "", styles.header);
+                setCell(row, layout.grandTotal(), "", styles.header);
+
                 return rowIndex;
         }
 
-        private int writeDefectSection(Sheet sheet, int rowIndex, String title, List<InspectionData> columns,
-                        int totalColumn, Styles styles,
+        private int writeDefectSection(
+                        Sheet sheet,
+                        int rowIndex,
+                        String title,
+                        List<InspectionData> bulkColumns,
+                        List<InspectionData> repairColumns,
+                        Layout layout,
+                        Styles styles,
                         Function<InspectionData, Map<DefectKey, Integer>> defectGetter) {
+
                 createMergedRow(
-                                sheet, rowIndex++, 0, totalColumn,
+                                sheet, rowIndex++, LABEL_COLUMN, layout.lastColumn(),
                                 title, styles.section);
 
                 Comparator<DefectKey> comparator = Comparator
@@ -327,134 +449,321 @@ public class WashingReportExcelService {
                                                 String.CASE_INSENSITIVE_ORDER);
 
                 Set<DefectKey> keys = new TreeSet<>(comparator);
-                for (InspectionData data : columns) {
+
+                for (InspectionData data : bulkColumns) {
                         keys.addAll(defectGetter.apply(data).keySet());
                 }
 
+                for (InspectionData data : repairColumns) {
+                        keys.addAll(defectGetter.apply(data).keySet());
+                }
+
+                long bulkInspect = totalInspect(bulkColumns);
+                long repairInspect = totalInspect(repairColumns);
+
                 String currentArea = null;
+
                 for (DefectKey key : keys) {
 
-                        if (!key.area().isBlank() && !key.area().equals(currentArea)) {
+                        if (!key.area().isBlank()
+                                        && !key.area().equals(currentArea)) {
+
                                 currentArea = key.area();
 
                                 Row areaRow = sheet.createRow(rowIndex++);
 
-                                setCell(areaRow, 0, currentArea, styles.area);
-                                for (int c = 1; c <= totalColumn; c++) {
+                                setCell(
+                                                areaRow, LABEL_COLUMN,
+                                                currentArea, styles.area);
+
+                                for (int c = layout.bulkStart(); c <= layout.lastColumn(); c++) {
                                         setCell(areaRow, c, "", styles.area);
                                 }
                         }
 
                         Row row = sheet.createRow(rowIndex++);
-                        setCell(row, 0, "    " + key.name(), styles.body);
-                        int rowTotal = 0;
 
-                        for (int c = 0; c < 6; c++) {
-                                int quantity = 0;
-                                if (c < columns.size()) {
-                                        quantity = defectGetter.apply(columns.get(c))
-                                                        .getOrDefault(key, 0);
-                                }
+                        setCell(
+                                        row, LABEL_COLUMN,
+                                        "    " + key.name(), styles.body);
 
-                                rowTotal += quantity;
-                                setCell(row, c + 1, quantity, styles.number);
+                        int bulkTotal = 0;
+                        int repairTotal = 0;
+
+                        for (int i = 0; i < bulkColumns.size(); i++) {
+                                int quantity = defectGetter.apply(
+                                                bulkColumns.get(i)).getOrDefault(key, 0);
+
+                                bulkTotal += quantity;
+
+                                setCell(
+                                                row, layout.bulkStart() + i,
+                                                quantity, styles.number);
                         }
 
-                        setCell(row, totalColumn, rowTotal, styles.total);
+                        for (int i = 0; i < repairColumns.size(); i++) {
+                                int quantity = defectGetter.apply(
+                                                repairColumns.get(i)).getOrDefault(key, 0);
+
+                                repairTotal += quantity;
+
+                                setCell(
+                                                row, layout.repairStart() + i,
+                                                quantity, styles.number);
+                        }
+
+                        setCell(row, layout.bulkTotal(), bulkTotal, styles.total);
+
+                        setCell(
+                                        row, layout.bulkPct(),
+                                        percentage(bulkTotal, bulkInspect),
+                                        styles.percentTotal);
+
+                        setCell(row, layout.repairTotal(), repairTotal, styles.total);
+
+                        setCell(
+                                        row, layout.repairPct(),
+                                        percentage(repairTotal, repairInspect),
+                                        styles.percentTotal);
+
+                        setCell(
+                                        row, layout.grandTotal(),
+                                        bulkTotal + repairTotal, styles.total);
                 }
+
                 return rowIndex;
         }
 
-        private int writeSummaryRow(Sheet sheet, int rowIndex, String label, List<InspectionData> columns,
-                        ToIntFunction<InspectionData> getter, int totalColumn, Styles styles) {
+        private int writeSummaryRow(
+                        Sheet sheet,
+                        int rowIndex,
+                        String label,
+                        List<InspectionData> bulkColumns,
+                        List<InspectionData> repairColumns,
+                        Layout layout,
+                        ToIntFunction<InspectionData> getter,
+                        Styles styles) {
+
                 Row row = sheet.createRow(rowIndex++);
 
-                setCell(row, 0, label, styles.summary);
+                setCell(row, LABEL_COLUMN, label, styles.summaryLabel);
 
-                int grandTotal = 0;
+                int bulkGrandTotal = 0;
+                int repairGrandTotal = 0;
 
-                for (int c = 0; c < 6; c++) {
-                        int value = c < columns.size()
-                                        ? getter.applyAsInt(columns.get(c))
-                                        : 0;
+                long bulkInspect = totalInspect(bulkColumns);
+                long repairInspect = totalInspect(repairColumns);
 
-                        grandTotal += value;
+                for (int i = 0; i < bulkColumns.size(); i++) {
+                        int value = getter.applyAsInt(bulkColumns.get(i));
 
-                        setCell(row, c + 1, value, styles.number);
+                        bulkGrandTotal += value;
+
+                        setCell(
+                                        row, layout.bulkStart() + i,
+                                        value, styles.summaryValue);
                 }
 
-                setCell(row, totalColumn, grandTotal, styles.total);
+                for (int i = 0; i < repairColumns.size(); i++) {
+                        int value = getter.applyAsInt(repairColumns.get(i));
+
+                        repairGrandTotal += value;
+
+                        setCell(
+                                        row, layout.repairStart() + i,
+                                        value, styles.summaryValue);
+                }
+
+                setCell(
+                                row, layout.bulkTotal(),
+                                bulkGrandTotal, styles.total);
+
+                setCell(
+                                row, layout.bulkPct(),
+                                percentage(bulkGrandTotal, bulkInspect),
+                                styles.percentTotal);
+
+                setCell(
+                                row, layout.repairTotal(),
+                                repairGrandTotal, styles.total);
+
+                setCell(
+                                row, layout.repairPct(),
+                                percentage(repairGrandTotal, repairInspect),
+                                styles.percentTotal);
+
+                setCell(
+                                row, layout.grandTotal(),
+                                bulkGrandTotal + repairGrandTotal, styles.total);
+
                 return rowIndex;
         }
 
-        private int writePercentageRow(Sheet sheet, int rowIndex, String label, List<InspectionData> columns,
-                        ToIntFunction<InspectionData> defectGetter, int totalColumn, Styles styles) {
+        private int writePercentageRow(
+                        Sheet sheet,
+                        int rowIndex,
+                        String label,
+                        List<InspectionData> bulkColumns,
+                        List<InspectionData> repairColumns,
+                        Layout layout,
+                        ToIntFunction<InspectionData> defectGetter,
+                        Styles styles) {
+
                 Row row = sheet.createRow(rowIndex++);
-                setCell(row, 0, label, styles.summary);
 
-                int totalInspect = 0;
-                int totalDefect = 0;
+                setCell(row, LABEL_COLUMN, label, styles.summaryLabel);
 
-                for (int c = 0; c < 6; c++) {
-                        InspectionData data = c < columns.size()
-                                        ? columns.get(c)
-                                        : new InspectionData();
+                long bulkInspect = 0;
+                long bulkDefect = 0;
+                long repairInspect = 0;
+                long repairDefect = 0;
+
+                for (int i = 0; i < bulkColumns.size(); i++) {
+                        InspectionData data = bulkColumns.get(i);
 
                         int inspect = data.getInspectQuantity();
                         int defect = defectGetter.applyAsInt(data);
 
-                        totalInspect += inspect;
-                        totalDefect += defect;
+                        bulkInspect += inspect;
+                        bulkDefect += defect;
 
-                        double percentage = inspect <= 0
-                                        ? 0.0
-                                        : (double) defect / inspect;
-
-                        setCell(row, c + 1, percentage, styles.percent);
+                        setCell(
+                                        row, layout.bulkStart() + i,
+                                        percentage(defect, inspect), styles.percent);
                 }
 
-                double grandPercentage = totalInspect <= 0
-                                ? 0.0
-                                : (double) totalDefect / totalInspect;
+                for (int i = 0; i < repairColumns.size(); i++) {
+                        InspectionData data = repairColumns.get(i);
+
+                        int inspect = data.getInspectQuantity();
+                        int defect = defectGetter.applyAsInt(data);
+
+                        repairInspect += inspect;
+                        repairDefect += defect;
+
+                        setCell(
+                                        row, layout.repairStart() + i,
+                                        percentage(defect, inspect), styles.percent);
+                }
 
                 setCell(
-                                row, totalColumn,
-                                grandPercentage, styles.percentTotal);
+                                row, layout.bulkTotal(),
+                                percentage(bulkDefect, bulkInspect),
+                                styles.percentTotal);
+
+                setCell(row, layout.bulkPct(), "", styles.total);
+
+                setCell(
+                                row, layout.repairTotal(),
+                                percentage(repairDefect, repairInspect),
+                                styles.percentTotal);
+
+                setCell(row, layout.repairPct(), "", styles.total);
+
+                setCell(
+                                row, layout.grandTotal(),
+                                percentage(
+                                                bulkDefect + repairDefect,
+                                                bulkInspect + repairInspect),
+                                styles.percentTotal);
 
                 return rowIndex;
         }
 
-        private void createMergedRow(Sheet sheet, int rowIndex, int firstCol, int lastCol, String value,
-                        CellStyle style) {
-                Row row = sheet.createRow(rowIndex);
-                for (int c = firstCol; c <= lastCol; c++) {
-                        Cell cell = row.createCell(c);
-                        cell.setCellStyle(style);
+        private double percentage(long defect, long inspect) {
+                return inspect <= 0 ? 0.0 : (double) defect / inspect;
+        }
+
+        private long totalInspect(List<InspectionData> columns) {
+                long total = 0;
+
+                for (InspectionData data : columns) {
+                        total += data.getInspectQuantity();
                 }
 
-                row.getCell(firstCol).setCellValue(value);
+                return total;
+        }
 
-                if (firstCol < lastCol) {
-                        sheet.addMergedRegion(new CellRangeAddress(
-                                        rowIndex, rowIndex, firstCol, lastCol));
+        private void createMergedRow(
+                        Sheet sheet,
+                        int rowIndex,
+                        int firstCol,
+                        int lastCol,
+                        String value,
+                        CellStyle style) {
+
+                Row row = sheet.getRow(rowIndex);
+
+                if (row == null) {
+                        row = sheet.createRow(rowIndex);
+                }
+
+                Cell cell = row.getCell(firstCol);
+
+                if (cell == null) {
+                        cell = row.createCell(firstCol);
+                }
+
+                cell.setCellValue(value);
+
+                for (int col = firstCol; col <= lastCol; col++) {
+                        Cell currentCell = row.getCell(col);
+
+                        if (currentCell == null) {
+                                currentCell = row.createCell(col);
+                        }
+
+                        currentCell.setCellStyle(style);
+                }
+
+                CellRangeAddress targetRegion = new CellRangeAddress(rowIndex, rowIndex, firstCol, lastCol);
+
+                boolean alreadyMerged = false;
+
+                for (int i = 0; i < sheet.getNumMergedRegions(); i++) {
+                        CellRangeAddress existingRegion = sheet.getMergedRegion(i);
+
+                        if (existingRegion.formatAsString()
+                                        .equals(targetRegion.formatAsString())) {
+                                alreadyMerged = true;
+                                break;
+                        }
+                }
+
+                if (!alreadyMerged && firstCol < lastCol) {
+                        sheet.addMergedRegion(targetRegion);
                 }
         }
 
-        private void setCell(Row row, int column, String value, CellStyle style) {
+        private void setCell(
+                        Row row, int column, String value, CellStyle style) {
+
                 Cell cell = row.createCell(column);
                 cell.setCellValue(value == null ? "" : value);
                 cell.setCellStyle(style);
         }
 
-        private void setCell(Row row, int column, int value, CellStyle style) {
+        private void setCell(
+                        Row row, int column, int value, CellStyle style) {
+
                 Cell cell = row.createCell(column);
-                cell.setCellValue(value);
+
+                if (value != 0) {
+                        cell.setCellValue(value);
+                }
+
                 cell.setCellStyle(style);
         }
 
-        private void setCell(Row row, int column, double value, CellStyle style) {
+        private void setCell(
+                        Row row, int column, double value, CellStyle style) {
+
                 Cell cell = row.createCell(column);
-                cell.setCellValue(value);
+
+                if (value != 0.0) {
+                        cell.setCellValue(value);
+                }
+
                 cell.setCellStyle(style);
         }
 
@@ -462,17 +771,57 @@ public class WashingReportExcelService {
                 return value == null ? "" : value.trim();
         }
 
-        private record ProductionKey(String buyer, String style, String color) {
+        private record Layout(int bulkCount, int repairCount) {
 
+                int bulkStart() {
+                        return 1;
+                }
+
+                int bulkTotal() {
+                        return bulkStart() + bulkCount;
+                }
+
+                int bulkPct() {
+                        return bulkTotal() + 1;
+                }
+
+                int repairStart() {
+                        return bulkPct() + 1;
+                }
+
+                int repairTotal() {
+                        return repairStart() + repairCount;
+                }
+
+                int repairPct() {
+                        return repairTotal() + 1;
+                }
+
+                int grandTotal() {
+                        return repairPct() + 1;
+                }
+
+                int lastColumn() {
+                        return grandTotal();
+                }
         }
 
-        private record DefectKey(String area, String name) {
+        private record ProductionKey(
+                        String buyer,
+                        String style,
+                        String color) {
+        }
 
+        private record DefectKey(
+                        String area,
+                        String name) {
         }
 
         private static class InspectionData {
+
                 private int inspectQuantity;
                 private int transferQuantity;
+
                 private int sewingDefectTotal;
                 private int washingDefectTotal;
                 private int finishingDefectTotal;
@@ -485,17 +834,23 @@ public class WashingReportExcelService {
                 private final Set<String> grades = new LinkedHashSet<>();
 
                 private final Map<DefectKey, Integer> sewingDefects = new LinkedHashMap<>();
+
                 private final Map<DefectKey, Integer> washingDefects = new LinkedHashMap<>();
+
                 private final Map<DefectKey, Integer> finishingDefects = new LinkedHashMap<>();
 
                 static InspectionData from(Inspection inspection) {
+
                         InspectionData data = new InspectionData();
+
                         if (inspection.getInspectQuantity() != null) {
                                 data.inspectQuantity = inspection.getInspectQuantity();
                         }
+
                         if (inspection.getTransferQuantity() != null) {
                                 data.transferQuantity = inspection.getTransferQuantity();
                         }
+
                         addIfPresent(data.buyers, inspection.getBuyerName());
                         addIfPresent(data.styles, inspection.getStyleCode());
                         addIfPresent(data.colors, inspection.getColorName());
@@ -508,13 +863,17 @@ public class WashingReportExcelService {
                         }
 
                         for (InspectionDefect inspectionDefect : inspection.getInspectionDefects()) {
+
                                 if (inspectionDefect == null) {
                                         continue;
                                 }
+
                                 DefectType type = inspectionDefect.getDefectType();
+
                                 if (type == null || type.getCategory() == null) {
                                         continue;
                                 }
+
                                 int quantity = inspectionDefect.getQuantity() == null
                                                 ? 0
                                                 : inspectionDefect.getQuantity();
@@ -524,33 +883,43 @@ public class WashingReportExcelService {
                                 }
 
                                 String area = "";
+
                                 if (type.getDefectArea() != null
                                                 && type.getDefectArea().getName() != null) {
-
                                         area = type.getDefectArea().getName().trim();
                                 }
 
-                                String name = safe(type.getName());
-                                DefectKey key = new DefectKey(area, name);
+                                DefectKey key = new DefectKey(
+                                                area, safe(type.getName()));
+
                                 DefectCategory category = type.getCategory();
 
                                 if (isSewingCategory(category)) {
-                                        data.sewingDefects.merge(key, quantity, Integer::sum);
+                                        data.sewingDefects.merge(
+                                                        key, quantity, Integer::sum);
+
                                         data.sewingDefectTotal += quantity;
 
                                 } else if (category == DefectCategory.DEFECT_WASHING) {
-                                        data.washingDefects.merge(key, quantity, Integer::sum);
+                                        data.washingDefects.merge(
+                                                        key, quantity, Integer::sum);
+
                                         data.washingDefectTotal += quantity;
 
                                 } else if (category == DefectCategory.DEFECT_FINISHING) {
-                                        data.finishingDefects.merge(key, quantity, Integer::sum);
+                                        data.finishingDefects.merge(
+                                                        key, quantity, Integer::sum);
+
                                         data.finishingDefectTotal += quantity;
                                 }
                         }
+
                         return data;
                 }
 
-                private static boolean isSewingCategory(DefectCategory category) {
+                private static boolean isSewingCategory(
+                                DefectCategory category) {
+
                         return category == DefectCategory.DEFECT_BACK_TO_LINE
                                         || category == DefectCategory.DEFECT_TRIMMING
                                         || category == DefectCategory.DEFECT_STAIN
@@ -559,6 +928,7 @@ public class WashingReportExcelService {
                 }
 
                 void add(InspectionData other) {
+
                         inspectQuantity += other.inspectQuantity;
                         transferQuantity += other.transferQuantity;
 
@@ -578,11 +948,18 @@ public class WashingReportExcelService {
                         mergeDefects(finishingDefects, other.finishingDefects);
                 }
 
-                private static void mergeDefects(Map<DefectKey, Integer> target, Map<DefectKey, Integer> source) {
-                        source.forEach((key, value) -> target.merge(key, value, Integer::sum));
+                private static void mergeDefects(
+                                Map<DefectKey, Integer> target,
+                                Map<DefectKey, Integer> source) {
+
+                        source.forEach(
+                                        (key, value) -> target.merge(
+                                                        key, value, Integer::sum));
                 }
 
-                private static void addIfPresent(Set<String> set, String value) {
+                private static void addIfPresent(
+                                Set<String> set, String value) {
+
                         if (value != null && !value.isBlank()) {
                                 set.add(value.trim());
                         }
@@ -657,11 +1034,17 @@ public class WashingReportExcelService {
         }
 
         private static class Styles {
+
                 private static final Color GREEN_HEADER = new Color(96, 125, 107);
+
                 private static final Color GREEN_LIGHT = new Color(238, 243, 238);
+
                 private static final Color BLUE_HEADER = new Color(220, 230, 239);
+
                 private static final Color BEIGE = new Color(245, 240, 230);
+
                 private static final Color GREEN_TOTAL = new Color(220, 232, 223);
+
                 private static final Color YELLOW_LIGHT = new Color(255, 249, 196);
 
                 final CellStyle title;
@@ -673,12 +1056,14 @@ public class WashingReportExcelService {
                 final CellStyle area;
                 final CellStyle body;
                 final CellStyle number;
-                final CellStyle summary;
+                final CellStyle summaryLabel;
+                final CellStyle summaryValue;
                 final CellStyle total;
                 final CellStyle percent;
                 final CellStyle percentTotal;
 
                 Styles(Workbook workbook) {
+
                         title = style(
                                         workbook, GREEN_HEADER,
                                         IndexedColors.WHITE.getIndex(),
@@ -692,7 +1077,7 @@ public class WashingReportExcelService {
                         period = style(
                                         workbook, GREEN_LIGHT,
                                         IndexedColors.DARK_BLUE.getIndex(),
-                                        9, false, HorizontalAlignment.LEFT);
+                                        9, true, HorizontalAlignment.CENTER);
 
                         header = style(
                                         workbook, BLUE_HEADER,
@@ -722,44 +1107,55 @@ public class WashingReportExcelService {
                         number = style(
                                         workbook, Color.WHITE,
                                         IndexedColors.BLACK.getIndex(),
-                                        9, false, HorizontalAlignment.RIGHT);
+                                        9, false, HorizontalAlignment.CENTER);
 
-                        summary = style(
+                        summaryLabel = style(
                                         workbook, BEIGE,
                                         IndexedColors.DARK_BLUE.getIndex(),
                                         9, true, HorizontalAlignment.LEFT);
 
+                        summaryValue = style(
+                                        workbook, BEIGE,
+                                        IndexedColors.DARK_BLUE.getIndex(),
+                                        9, true, HorizontalAlignment.CENTER);
+
                         total = style(
                                         workbook, GREEN_TOTAL,
                                         IndexedColors.DARK_GREEN.getIndex(),
-                                        9, true, HorizontalAlignment.RIGHT);
+                                        9, true, HorizontalAlignment.CENTER);
 
                         percent = style(
                                         workbook, BEIGE,
                                         IndexedColors.DARK_BLUE.getIndex(),
-                                        9, true, HorizontalAlignment.RIGHT);
+                                        9, true, HorizontalAlignment.CENTER);
 
                         percentTotal = style(
                                         workbook, GREEN_TOTAL,
                                         IndexedColors.DARK_GREEN.getIndex(),
-                                        9, true, HorizontalAlignment.RIGHT);
+                                        9, true, HorizontalAlignment.CENTER);
 
                         DataFormat format = workbook.createDataFormat();
 
-                        percent.setDataFormat(
-                                        format.getFormat("0.00%"));
-
-                        percentTotal.setDataFormat(
-                                        format.getFormat("0.00%"));
+                        percent.setDataFormat(format.getFormat("0.00%"));
+                        percentTotal.setDataFormat(format.getFormat("0.00%"));
                 }
 
-                private CellStyle style(Workbook workbook, Color background, short fontColor, int fontSize,
-                                boolean bold, HorizontalAlignment alignment) {
+                private CellStyle style(
+                                Workbook workbook,
+                                Color background,
+                                short fontColor,
+                                int fontSize,
+                                boolean bold,
+                                HorizontalAlignment alignment) {
+
                         XSSFCellStyle style = (XSSFCellStyle) workbook.createCellStyle();
 
-                        style.setFillForegroundColor(new XSSFColor(background, new DefaultIndexedColorMap()));
-                        style.setFillPattern(FillPatternType.SOLID_FOREGROUND);
+                        style.setFillForegroundColor(
+                                        new XSSFColor(
+                                                        background,
+                                                        new DefaultIndexedColorMap()));
 
+                        style.setFillPattern(FillPatternType.SOLID_FOREGROUND);
                         style.setAlignment(alignment);
                         style.setVerticalAlignment(VerticalAlignment.CENTER);
                         style.setWrapText(true);
@@ -769,16 +1165,25 @@ public class WashingReportExcelService {
                         style.setBorderLeft(BorderStyle.THIN);
                         style.setBorderRight(BorderStyle.THIN);
 
-                        style.setTopBorderColor(IndexedColors.GREY_25_PERCENT.getIndex());
-                        style.setBottomBorderColor(IndexedColors.GREY_25_PERCENT.getIndex());
-                        style.setLeftBorderColor(IndexedColors.GREY_25_PERCENT.getIndex());
-                        style.setRightBorderColor(IndexedColors.GREY_25_PERCENT.getIndex());
+                        style.setTopBorderColor(
+                                        IndexedColors.GREY_25_PERCENT.getIndex());
+
+                        style.setBottomBorderColor(
+                                        IndexedColors.GREY_25_PERCENT.getIndex());
+
+                        style.setLeftBorderColor(
+                                        IndexedColors.GREY_25_PERCENT.getIndex());
+
+                        style.setRightBorderColor(
+                                        IndexedColors.GREY_25_PERCENT.getIndex());
+
                         XSSFFont font = (XSSFFont) workbook.createFont();
 
                         font.setFontName("Calibri");
                         font.setFontHeightInPoints((short) fontSize);
                         font.setBold(bold);
                         font.setColor(fontColor);
+
                         style.setFont(font);
 
                         return style;

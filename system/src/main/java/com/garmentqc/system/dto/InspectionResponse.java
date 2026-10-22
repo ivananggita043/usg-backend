@@ -3,6 +3,8 @@ package com.garmentqc.system.dto;
 import java.time.Instant;
 import java.util.List;
 
+import com.garmentqc.system.enums.WashingType;
+
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 
@@ -43,6 +45,8 @@ public class InspectionResponse {
     private String grade;
 
     private String process;
+
+    private WashingType washingType;
 
     private List<DefectItem> defects;
 

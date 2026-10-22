@@ -116,13 +116,10 @@ public class InspectionReportService {
                 }
 
                 String role = currentUser.getRole().name();
-
-                // Super Admin boleh memilih section atau melihat semua section
                 if ("SUPER_ADMIN".equals(role)) {
                         return normalizeSection(requestedSection);
                 }
 
-                // Admin otomatis menggunakan section miliknya
                 if ("ADMIN".equals(role)) {
                         if (currentUser.getSection() == null) {
                                 throw new AccessDeniedException("Admin belum memiliki section");
@@ -270,6 +267,20 @@ public class InspectionReportService {
                                                                                                 .name()))
                                                 .toList());
 
+                List<InspectionReportResponse.WashingTypeSummary> washingTypeResults = buildWashingTypeSummaries(
+                                inspections.stream()
+                                                .filter(inspection -> canViewInspection(inspection, currentUser))
+                                                .filter(inspection -> {
+                                                        Line line = inspection.getLine();
+                                                        return line != null
+                                                                        && line.getSection() != null
+                                                                        && (normalizedSection == null
+                                                                                        || normalizedSection.equals(
+                                                                                                        line.getSection()
+                                                                                                                        .name()));
+                                                })
+                                                .toList());
+
                 return new InspectionReportResponse(
                                 reportType,
                                 startDate,
@@ -283,7 +294,9 @@ public class InspectionReportService {
                                 sectionResults,
                                 lineResults,
                                 defectResults,
-                                timeSlotResults);
+                                timeSlotResults,
+                                washingTypeResults
+                                );
         }
 
         private InspectionGroupedReportResponse generateGroupedReport(String reportType, LocalDate startDate,
@@ -374,13 +387,10 @@ public class InspectionReportService {
                 }
 
                 String role = currentUser.getRole().name();
-
-                // Super Admin dapat melihat semua inspection
                 if ("SUPER_ADMIN".equals(role)) {
                         return true;
                 }
 
-                // Admin hanya dapat melihat inspection dari section sendiri
                 if ("ADMIN".equals(role)) {
                         return currentUser.getSection() != null
                                         && inspection.getLine() != null
@@ -389,7 +399,6 @@ public class InspectionReportService {
                                                         .equals(inspection.getLine().getSection());
                 }
 
-                // User/QC tidak boleh mengakses laporan
                 throw new AccessDeniedException(
                                 "User/QC tidak diizinkan mengakses laporan");
         }
@@ -555,4 +564,49 @@ public class InspectionReportService {
                                 })
                                 .toList();
         }
+
+        private List<InspectionReportResponse.WashingTypeSummary> buildWashingTypeSummaries(
+                        List<Inspection> inspections) {
+
+                Map<String, List<Inspection>> grouped = inspections.stream()
+                                .filter(i -> i.getLine() != null
+                                                && i.getLine().getSection() != null
+                                                && "WASHING".equals(i.getLine().getSection().name()))
+                                .filter(i -> i.getWashingType() != null)
+                                .collect(Collectors.groupingBy(
+                                                i -> i.getWashingType().name(),
+                                                TreeMap::new,
+                                                Collectors.toList()));
+
+                return grouped.entrySet().stream()
+                                .map(entry -> {
+                                        List<Inspection> items = entry.getValue();
+
+                                        long totalInspections = items.size();
+
+                                        long totalQuantityInspect = items.stream()
+                                                        .mapToLong(i -> valueOrZero(i.getInspectQuantity()))
+                                                        .sum();
+
+                                        long totalTransferQuantity = items.stream()
+                                                        .mapToLong(i -> valueOrZero(i.getTransferQuantity()))
+                                                        .sum();
+
+                                        long totalDefects = items.stream()
+                                                        .flatMap(i -> safeDefects(i).stream())
+                                                        .mapToLong(d -> valueOrZero(d.getQuantity()))
+                                                        .sum();
+
+                                        return new InspectionReportResponse.WashingTypeSummary(
+                                                        entry.getKey(),
+                                                        totalInspections,
+                                                        totalQuantityInspect,
+                                                        totalTransferQuantity,
+                                                        totalDefects,
+                                                        totalQuantityInspect - totalDefects,
+                                                        calculatePercentage(totalDefects, totalQuantityInspect));
+                                })
+                                .toList();
+        }
+
 }

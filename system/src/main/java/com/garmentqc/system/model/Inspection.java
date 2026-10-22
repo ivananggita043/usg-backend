@@ -3,9 +3,13 @@ package com.garmentqc.system.model;
 import java.util.ArrayList;
 import java.util.List;
 
+import com.garmentqc.system.enums.WashingType;
+
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
@@ -61,6 +65,10 @@ public class Inspection extends BaseEntity {
 
     @Column(name = "process", length = 20)
     private String process;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "washing_type", length = 10)
+    private WashingType washingType;
 
     @Min(0)
     @Column(name = "qty_check_carton_today")

@@ -36,6 +36,8 @@ public class InspectionReportResponse {
 
     private List<TimeSlotSummary> timeSlotSummaries;
 
+    private List<WashingTypeSummary> washingTypeSummaries;
+
     @Getter
     @AllArgsConstructor
     public static class SectionSummary {
@@ -84,7 +86,7 @@ public class InspectionReportResponse {
         private String defectTypeId;
 
         private String defectTypeName;
-        
+
         private long totalDefects;
     }
 
@@ -93,6 +95,25 @@ public class InspectionReportResponse {
     public static class TimeSlotSummary {
 
         private String inspectionTimeSlot;
+
+        private long totalInspections;
+
+        private long totalQuantityInspect;
+
+        private long totalTransferQuantity;
+
+        private long totalDefects;
+
+        private long goodQc;
+
+        private double defectPercentage;
+    }
+
+    @Getter
+    @AllArgsConstructor
+    public static class WashingTypeSummary {
+
+        private String washingType;
 
         private long totalInspections;
 
