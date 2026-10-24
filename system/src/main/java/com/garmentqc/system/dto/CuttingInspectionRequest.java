@@ -3,10 +3,10 @@ package com.garmentqc.system.dto;
 
 import java.util.List;
 
-import com.garmentqc.system.enums.CuttingPanel;
 import com.garmentqc.system.enums.CuttingProcessCheck;
 
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
@@ -48,9 +48,6 @@ public class CuttingInspectionRequest {
         private String colorName;
 
         @NotBlank
-        private String defectTypeId;
-
-        @NotBlank
         private String lot;
 
         @NotBlank
@@ -60,21 +57,11 @@ public class CuttingInspectionRequest {
         @Positive
         private Integer quantityInspect;
 
-        @NotEmpty
-        @Valid
-        private List<DefectRequest> defects;
-    }
-
-    @Getter
-    @Setter
-    @NoArgsConstructor
-    public static class DefectRequest {
-
         @NotNull
-        private CuttingPanel panel;
+        @Min(0)
+        private Integer quantityDefect;
 
-        @NotNull
-        @Positive
-        private Integer quantity;
+        @NotBlank
+        private String defectTypeId;
     }
 }

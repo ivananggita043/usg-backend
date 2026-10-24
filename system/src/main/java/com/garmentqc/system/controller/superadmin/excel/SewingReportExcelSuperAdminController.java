@@ -75,7 +75,6 @@ public class SewingReportExcelSuperAdminController {
                 // ("SEWING".equals(user.getSection().name()))) {
                 // return;
                 // }
-
                 throw new UnauthorizedException("Hanya Super Admin yang mempunyai akses untuk export laporan Sewing");
         }
 }

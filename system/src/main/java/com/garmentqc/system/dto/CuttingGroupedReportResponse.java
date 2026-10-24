@@ -33,7 +33,7 @@ public class CuttingGroupedReportResponse {
 
         private long totalItems;
 
-        private long totalQuantityInspect; 
+        private long totalQuantityInspect;
 
         private long totalDefects;
 

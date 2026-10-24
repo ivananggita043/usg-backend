@@ -43,4 +43,7 @@ public class CuttingInspectionItem extends BaseEntity {
 
     @Column(name = "quantity_inspect", nullable = false)
     private Integer quantityInspect;
+
+    @Column(name = "quantity_defect", nullable = false)
+    private Integer quantityDefect;
 }

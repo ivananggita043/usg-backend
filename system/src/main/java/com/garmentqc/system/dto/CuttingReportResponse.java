@@ -3,9 +3,7 @@ package com.garmentqc.system.dto;
 
 import java.time.LocalDate;
 import java.util.List;
-import java.util.Map;
 
-import com.garmentqc.system.enums.CuttingPanel;
 import com.garmentqc.system.enums.CuttingProcessCheck;
 
 import lombok.AllArgsConstructor;
@@ -49,8 +47,6 @@ public class CuttingReportResponse {
 
         private double defectPercentage;
 
-        private Map<CuttingPanel, Long> panelSummaries;
-
         private List<DetailRow> detailRows;
     }
 
@@ -68,14 +64,14 @@ public class CuttingReportResponse {
 
         private String defectTypeName;
 
-        private Map<CuttingPanel, Long> panelQuantities;
-
         private long quantityInspect;
 
-        private long totalDefects;
+        private long quantityDefect;
 
         private double defectPercentage;
 
         private String operatorName;
+
+        private LocalDate inspectionDate;
     }
 }

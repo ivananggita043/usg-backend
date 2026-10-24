@@ -1,3 +1,4 @@
+
 package com.garmentqc.system.model;
 
 import com.garmentqc.system.enums.CuttingProcessCheck;
@@ -25,7 +26,7 @@ public class CuttingInspection extends BaseEntity {
     @Column(name = "proses_check", nullable = false, length = 30)
     private CuttingProcessCheck processCheck;
 
-    @ManyToOne(fetch = FetchType.LAZY)
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "submitted_by", nullable = false)
     private User submittedBy;
 
