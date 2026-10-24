@@ -57,11 +57,8 @@ public class CuttingInspectionRequest {
         @Positive
         private Integer quantityInspect;
 
-        @NotNull
-        @Min(0)
         private Integer quantityDefect;
 
-        @NotBlank
         private String defectTypeId;
     }
 }

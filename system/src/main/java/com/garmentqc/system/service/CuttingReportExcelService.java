@@ -444,7 +444,6 @@ public class CuttingReportExcelService {
                                         subtotalFromDates += defectTotal;
                                 }
 
-                                // Subtotal proses.
                                 int subtotalRowIndex = rowIndex;
                                 Row subtotal = sheet.createRow(rowIndex++);
                                 subtotal.setHeightInPoints(25);
@@ -511,7 +510,6 @@ public class CuttingReportExcelService {
                                 processCell.setCellValue(processName);
                                 processCell.setCellStyle(bodyStyle);
 
-                                // Beri style pada seluruh sel di kolom merge.
                                 for (int r = processStartRow; r <= subtotalRowIndex; r++) {
                                         Row currentRow = sheet.getRow(r);
 
@@ -528,7 +526,6 @@ public class CuttingReportExcelService {
                                         currentCell.setCellStyle(bodyStyle);
                                 }
 
-                                // Merge dari baris detail pertama sampai baris subtotal.
                                 if (subtotalRowIndex >= processStartRow) {
                                         sheet.addMergedRegion(new CellRangeAddress(
                                                         processStartRow, subtotalRowIndex,
@@ -538,7 +535,6 @@ public class CuttingReportExcelService {
                                 grandDefectTotal += subtotalFromDates;
                         }
 
-                        // Grand total defect.
                         Row grandDefectRow = sheet.createRow(rowIndex++);
                         grandDefectRow.setHeightInPoints(27);
 
@@ -560,7 +556,6 @@ public class CuttingReportExcelService {
                                                         grandDefectTotal, report.getTotalQuantityInspect()),
                                         grandPercentageStyle);
 
-                        // Grand total inspect.
                         Row grandInspectRow = sheet.createRow(rowIndex++);
                         grandInspectRow.setHeightInPoints(27);
 
@@ -582,7 +577,6 @@ public class CuttingReportExcelService {
                         setNumber(grandInspectRow, totalCol, grandInspectTotal, grandStyle);
                         setText(grandInspectRow, percentageCol, "", grandStyle);
 
-                        // Persentase defect per tanggal dan seluruh periode.
                         Row percentageRow = sheet.createRow(rowIndex);
                         percentageRow.setHeightInPoints(27);
 

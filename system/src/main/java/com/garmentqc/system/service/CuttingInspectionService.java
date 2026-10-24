@@ -202,13 +202,24 @@ public class CuttingInspectionService {
                         String operatorName = itemRequest.getOperatorName().trim();
                         String defectTypeId = itemRequest.getDefectTypeId();
 
-                        CuttingDefectType defectType = defectTypeRepository
-                                        .findById(defectTypeId)
-                                        .orElseThrow(() -> new ResourceNotFoundException(
-                                                        "Cutting defect type tidak ditemukan: "
-                                                                        + defectTypeId));
+                        CuttingDefectType defectType = null;
 
-                        validateDefectType(defectType, request.getProcessCheck());
+                        if (itemRequest.getQuantityDefect() != null
+                                        && itemRequest.getQuantityDefect() > 0) {
+
+                                if (defectTypeId == null || defectTypeId.isBlank()) {
+                                        throw new BadRequestException(
+                                                        "Defect type wajib dipilih jika quantity defect lebih dari 0");
+                                }
+
+                                defectType = defectTypeRepository
+                                                .findById(defectTypeId)
+                                                .orElseThrow(() -> new ResourceNotFoundException(
+                                                                "Cutting defect type tidak ditemukan: "
+                                                                                + defectTypeId));
+
+                                validateDefectType(defectType, request.getProcessCheck());
+                        }
 
                         CuttingInspectionItem item = new CuttingInspectionItem();
                         item.setCuttingInspection(inspection);
@@ -303,9 +314,11 @@ public class CuttingInspectionService {
 
                         String defectTypeId = item.getDefectTypeId();
 
-                        if (defectTypeId == null || defectTypeId.isBlank()) {
+                        if (quantityDefect > 0
+                                        && (defectTypeId == null || defectTypeId.isBlank())) {
                                 throw new BadRequestException(
-                                                "Defect type wajib dipilih untuk style " + styleCode);
+                                                "Defect type wajib dipilih jika quantity defect lebih dari 0 "
+                                                                + "untuk style " + styleCode);
                         }
                 }
         }
@@ -346,6 +359,13 @@ public class CuttingInspectionService {
                 for (CuttingInspectionItem item : items) {
 
                         CuttingDefectType defectType = item.getDefectType();
+                        String defectTypeId = defectType != null
+                                        ? defectType.getId()
+                                        : null;
+
+                        String defectTypeName = defectType != null
+                                        ? defectType.getName()
+                                        : null;
 
                         int quantityInspect = item.getQuantityInspect() == null
                                         ? 0
@@ -368,8 +388,8 @@ public class CuttingInspectionService {
                                                         item.getOperatorName(),
                                                         quantityInspect,
                                                         quantityDefect,
-                                                        defectType.getId(),
-                                                        defectType.getName(),
+                                                        defectTypeId,
+                                                        defectTypeName,
                                                         defectPercentage));
                 }
 

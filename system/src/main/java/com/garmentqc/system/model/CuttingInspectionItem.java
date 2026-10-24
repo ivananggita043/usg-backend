@@ -32,7 +32,7 @@ public class CuttingInspectionItem extends BaseEntity {
     private String colorName;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "cutting_defect_type_id", nullable = false)
+    @JoinColumn(name = "cutting_defect_type_id", nullable = true)
     private CuttingDefectType defectType;
 
     @Column(name = "lot", nullable = false, length = 100)
@@ -44,6 +44,6 @@ public class CuttingInspectionItem extends BaseEntity {
     @Column(name = "quantity_inspect", nullable = false)
     private Integer quantityInspect;
 
-    @Column(name = "quantity_defect", nullable = false)
+    @Column(name = "quantity_defect", nullable = true)
     private Integer quantityDefect;
 }
