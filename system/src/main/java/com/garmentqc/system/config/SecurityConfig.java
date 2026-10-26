@@ -11,7 +11,11 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.security.config.Customizer;
+import org.springframework.web.cors.*;
+import org.springframework.beans.factory.annotation.Value;
 
+import java.util.List;
 import com.garmentqc.system.security.JwtAuthenticationFilter;
 
 @Configuration
@@ -42,6 +46,7 @@ public class SecurityConfig {
                         HttpSecurity http) throws Exception {
 
                 http
+                                .cors(Customizer.withDefaults())
                                 .csrf(csrf -> csrf.disable())
                                 .sessionManagement(session -> session.sessionCreationPolicy(
                                                 SessionCreationPolicy.STATELESS))
@@ -57,5 +62,17 @@ public class SecurityConfig {
                                                 jwtAuthenticationFilter,
                                                 UsernamePasswordAuthenticationFilter.class);
                 return http.build();
+        }
+
+        @Bean
+        public CorsConfigurationSource corsConfigurationSource(
+                        @Value("${app.cors.origins}") List<String> origins) {
+                CorsConfiguration c = new CorsConfiguration();
+                c.setAllowedOrigins(origins);
+                c.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
+                c.setAllowedHeaders(List.of("Authorization", "Content-Type", "Accept"));
+                UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+                source.registerCorsConfiguration("/**", c);
+                return source;
         }
 }
