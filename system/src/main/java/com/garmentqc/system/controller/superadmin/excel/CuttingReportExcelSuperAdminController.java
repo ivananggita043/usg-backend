@@ -18,6 +18,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.garmentqc.system.dto.CuttingReportResponse;
+import com.garmentqc.system.exception.BadRequestException;
 import com.garmentqc.system.exception.UnauthorizedException;
 import com.garmentqc.system.model.User;
 import com.garmentqc.system.repository.UserRepository;
@@ -32,105 +33,82 @@ import lombok.RequiredArgsConstructor;
 @PreAuthorize("hasRole('SUPER_ADMIN')")
 public class CuttingReportExcelSuperAdminController {
 
-    private static final String EXCEL_CONTENT_TYPE =
-            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+        private static final String EXCEL_CONTENT_TYPE = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
 
-    private final CuttingReportService reportService;
-    private final CuttingReportExcelService excelService;
-    private final UserRepository userRepository;
+        private final CuttingReportService reportService;
+        private final CuttingReportExcelService excelService;
+        private final UserRepository userRepository;
 
-    @GetMapping("/daily/export")
-    public ResponseEntity<byte[]> exportDaily(
-            @RequestParam
-            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
-            LocalDate date) throws IOException {
+        @GetMapping("/daily/export")
+        public ResponseEntity<byte[]> exportDaily(
+                        @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date)
+                        throws IOException {
 
-        validateCuttingExportAccess();
-
-        CuttingReportResponse report = reportService.getDailyReport(date);
-
-        return createExcelResponse(
-                report,
-                "Report-Cutting-Daily-" + date + ".xlsx");
-    }
-
-    @GetMapping("/weekly/export")
-    public ResponseEntity<byte[]> exportWeekly(
-            @RequestParam
-            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
-            LocalDate date) throws IOException {
-
-        validateCuttingExportAccess();
-
-        CuttingReportResponse report = reportService.getWeeklyReport(date);
-
-        return createExcelResponse(
-                report,
-                "Report-Cutting-Weekly-" + date + ".xlsx");
-    }
-
-    @GetMapping("/monthly/export")
-    public ResponseEntity<byte[]> exportMonthly(
-            @RequestParam int year,
-            @RequestParam int month) throws IOException {
-
-        validateCuttingExportAccess();
-
-        if (month < 1 || month > 12) {
-            throw new IllegalArgumentException(
-                    "Bulan harus berada di antara 1 dan 12");
+                validateCuttingExportAccess();
+                CuttingReportResponse report = reportService.getDailyReport(date);
+                return createExcelResponse(report, "Report-Cutting-Daily-" + date + ".xlsx");
         }
 
-        CuttingReportResponse report =
-                reportService.getMonthlyReport(year, month);
+        @GetMapping("/weekly/export")
+        public ResponseEntity<byte[]> exportWeekly(
+                        @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date)
+                        throws IOException {
 
-        return createExcelResponse(
-                report,
-                "Report-Cutting-" + year + "-"
-                        + String.format("%02d", month) + ".xlsx");
-    }
-
-    private ResponseEntity<byte[]> createExcelResponse(
-            CuttingReportResponse report,
-            String filename) throws IOException {
-
-        byte[] content = excelService.export(report);
-
-        return ResponseEntity.ok()
-                .header(
-                        HttpHeaders.CONTENT_DISPOSITION,
-                        "attachment; filename=\"" + filename + "\"")
-                .contentType(MediaType.parseMediaType(EXCEL_CONTENT_TYPE))
-                .contentLength(content.length)
-                .body(content);
-    }
-
-    private void validateCuttingExportAccess() {
-
-        Authentication authentication = SecurityContextHolder
-                .getContext()
-                .getAuthentication();
-
-        if (authentication == null
-                || !authentication.isAuthenticated()
-                || authentication instanceof AnonymousAuthenticationToken
-                || authentication.getName() == null
-                || authentication.getName().isBlank()
-                || "anonymousUser".equals(authentication.getName())) {
-
-            throw new UnauthorizedException(
-                    "Anda harus login untuk mengakses export Cutting");
+                validateCuttingExportAccess();
+                CuttingReportResponse report = reportService.getWeeklyReport(date);
+                return createExcelResponse(report, "Report-Cutting-Weekly-" + date + ".xlsx");
         }
 
-        User user = userRepository.findByUsername(authentication.getName())
-                .orElseThrow(() -> new UnauthorizedException(
-                        "User yang login tidak ditemukan"));
+        @GetMapping("/monthly/export")
+        public ResponseEntity<byte[]> exportMonthly(@RequestParam int year, @RequestParam int month)
+                        throws IOException {
+                validateCuttingExportAccess();
 
-        if (user.getRole() == null
-                || !"SUPER_ADMIN".equals(user.getRole().name())) {
+                if (month < 1 || month > 12) {
+                        throw new BadRequestException("Bulan harus berada di antara 1 dan 12");
+                }
 
-            throw new UnauthorizedException(
-                    "Hanya Super Admin yang mempunyai akses untuk export laporan Cutting");
+                CuttingReportResponse report = reportService.getMonthlyReport(year, month);
+                return createExcelResponse(
+                                report,
+                                "Report-Cutting-" + year + "-" + String.format("%02d", month) + ".xlsx");
         }
-    }
+
+        private ResponseEntity<byte[]> createExcelResponse(
+                        CuttingReportResponse report,
+                        String filename) throws IOException {
+
+                byte[] content = excelService.export(report);
+
+                return ResponseEntity.ok()
+                                .header(
+                                                HttpHeaders.CONTENT_DISPOSITION,
+                                                "attachment; filename=\"" + filename + "\"")
+                                .contentType(MediaType.parseMediaType(EXCEL_CONTENT_TYPE))
+                                .contentLength(content.length)
+                                .body(content);
+        }
+
+        private void validateCuttingExportAccess() {
+                Authentication authentication = SecurityContextHolder
+                                .getContext()
+                                .getAuthentication();
+
+                if (authentication == null
+                                || !authentication.isAuthenticated()
+                                || authentication instanceof AnonymousAuthenticationToken
+                                || authentication.getName() == null
+                                || authentication.getName().isBlank()
+                                || "anonymousUser".equals(authentication.getName())) {
+                        throw new UnauthorizedException("Anda harus login untuk mengakses export Cutting");
+                }
+
+                User user = userRepository.findByUsername(authentication.getName())
+                                .orElseThrow(() -> new UnauthorizedException("User yang login tidak ditemukan"));
+
+                if (user.getRole() == null || !"SUPER_ADMIN".equals(user.getRole().name())) {
+                        throw new UnauthorizedException(
+                                        "Hanya Super Admin yang mempunyai akses untuk export laporan Cutting");
+                }
+        }
 }

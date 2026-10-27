@@ -284,7 +284,7 @@ public class CuttingReportExcelService {
 
                         createMergedRow(
                                         sheet, 2, columnCount,
-                                        "COUNT & ACCURACY - QC DEPARTMENT",
+                                        "QC DEPARTMENT",
                                         subtitleStyle, 20);
 
                         createMergedRow(

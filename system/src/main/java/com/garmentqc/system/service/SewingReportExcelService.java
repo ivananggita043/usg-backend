@@ -538,7 +538,6 @@ public class SewingReportExcelService {
         style.setRightBorderColor(IndexedColors.GREY_25_PERCENT.getIndex());
     }
 
-    @SuppressWarnings("deprecation")
     private void configurePrint(Sheet sheet, int lastColumn) {
         PrintSetup printSetup = sheet.getPrintSetup();
 
