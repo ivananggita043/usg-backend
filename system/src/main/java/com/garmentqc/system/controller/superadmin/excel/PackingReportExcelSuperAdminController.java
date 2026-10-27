@@ -64,11 +64,7 @@ public class PackingReportExcelSuperAdminController {
                 if ("SUPER_ADMIN".equals(role)) {
                         return;
                 }
-                // if ("ADMIN".equals(role) && user.getSection() != null && ("PACKING".equals(user.getSection().name())
-                //                 || "FINISHING".equals(user.getSection().name()))) {
-                //         return;
-                // }
-                throw new UnauthorizedException(
-                                "Hanya Super Admin yang mempunyai akses untuk export laporan Packing");
+
+                throw new UnauthorizedException("Hanya Super Admin yang mempunyai akses untuk export laporan Packing");
         }
 }

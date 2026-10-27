@@ -2,6 +2,7 @@ package com.garmentqc.system.repository;
 
 import java.util.List;
 
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import com.garmentqc.system.enums.DefectCategory;
@@ -44,4 +45,13 @@ public interface DefectTypeRepository extends JpaRepository<DefectType, String> 
         List<DefectType> findByDefectArea_IdAndNameContainingIgnoreCaseAndActiveTrue(String defectAreaId, String name);
 
         List<DefectType> findByDefectAreaAndActiveTrueOrderByNameAsc(DefectArea defectArea);
+
+        @EntityGraph(attributePaths = "defectArea")
+        List<DefectType> findByActiveTrueAndDefectArea_Id(String areaId);
+
+        @EntityGraph(attributePaths = "defectArea")
+        List<DefectType> findByActiveTrueAndNameContainingIgnoreCase(String name);
+
+        @EntityGraph(attributePaths = "defectArea")
+        List<DefectType> findByActiveTrue();
 }

@@ -37,7 +37,6 @@ public class InspectionRequest {
     @Min(1)
     private Integer inspectedQuantity;
 
-    @NotNull
     @Min(0)
     private Integer transferQuantity = 0;
 

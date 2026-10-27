@@ -17,6 +17,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.garmentqc.system.dto.CuttingReportResponse;
+import com.garmentqc.system.exception.BadRequestException;
 import com.garmentqc.system.exception.UnauthorizedException;
 import com.garmentqc.system.model.User;
 import com.garmentqc.system.repository.UserRepository;
@@ -71,8 +72,7 @@ public class CuttingReportExcelAdminController {
         validateCuttingExportAccess();
 
         if (month < 1 || month > 12) {
-            throw new IllegalArgumentException(
-                    "Bulan harus berada di antara 1 dan 12");
+            throw new BadRequestException("Bulan harus berada di antara 1 dan 12");
         }
 
         CuttingReportResponse report = reportService.getMonthlyReport(year, month);

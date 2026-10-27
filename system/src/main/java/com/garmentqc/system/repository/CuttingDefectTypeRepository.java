@@ -19,5 +19,4 @@ public interface CuttingDefectTypeRepository extends JpaRepository<CuttingDefect
 
     List<CuttingDefectType> findByProcessCheckAndActiveTrueAndNameContainingIgnoreCase(CuttingProcessCheck processCheck,
             String name);
-
 }

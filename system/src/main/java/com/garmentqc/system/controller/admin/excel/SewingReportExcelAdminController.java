@@ -30,48 +30,48 @@ import lombok.RequiredArgsConstructor;
 @PreAuthorize("hasRole('ADMIN')")
 public class SewingReportExcelAdminController {
 
-    private final SewingReportExcelService excelService;
-    private final UserRepository userRepository;
+        private final SewingReportExcelService excelService;
+        private final UserRepository userRepository;
 
-    @GetMapping("/daily/export")
-    public ResponseEntity<byte[]> exportDailySewingExcel(
-            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
-            @AuthenticationPrincipal User currentUser)
-            throws IOException {
-        validatesewingExportAccess();
-        byte[] excel = excelService.exportDailySewingExcel(date, currentUser);
-        return ResponseEntity.ok()
-                .contentType(MediaType.parseMediaType(
-                        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
-                .header(
-                        HttpHeaders.CONTENT_DISPOSITION,
-                        "attachment; filename=\"Report-Sewing-Daily-"
-                                + date + ".xlsx\"")
-                .body(excel);
-    }
-
-    private void validatesewingExportAccess() {
-        Authentication authentication = SecurityContextHolder
-                .getContext()
-                .getAuthentication();
-
-        if (authentication == null
-                || !authentication.isAuthenticated()
-                || authentication instanceof AnonymousAuthenticationToken
-                || authentication.getName() == null
-                || authentication.getName().isBlank()
-                || "anonymousUser".equals(authentication.getName())) {
-            throw new UnauthorizedException("Anda harus login untuk mengakses export Cutting");
-        }
-        User user = userRepository.findByUsername(authentication.getName())
-                .orElseThrow(() -> new UnauthorizedException("User yang login tidak ditemukan"));
-
-        String role = user.getRole().name();
-
-        if ("ADMIN".equals(role) && user.getSection() != null && ("SEWING".equals(user.getSection().name()))) {
-            return;
+        @GetMapping("/daily/export")
+        public ResponseEntity<byte[]> exportDailySewingExcel(
+                        @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
+                        @AuthenticationPrincipal User currentUser)
+                        throws IOException {
+                validatesewingExportAccess();
+                byte[] excel = excelService.exportDailySewingExcel(date, currentUser);
+                return ResponseEntity.ok()
+                                .contentType(MediaType.parseMediaType(
+                                                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
+                                .header(
+                                                HttpHeaders.CONTENT_DISPOSITION,
+                                                "attachment; filename=\"Report-Sewing-Daily-"
+                                                                + date + ".xlsx\"")
+                                .body(excel);
         }
 
-        throw new UnauthorizedException("Hanya Admin Sewing yang mempunyai akses untuk export laporan Sewing");
-    }
+        private void validatesewingExportAccess() {
+                Authentication authentication = SecurityContextHolder
+                                .getContext()
+                                .getAuthentication();
+
+                if (authentication == null
+                                || !authentication.isAuthenticated()
+                                || authentication instanceof AnonymousAuthenticationToken
+                                || authentication.getName() == null
+                                || authentication.getName().isBlank()
+                                || "anonymousUser".equals(authentication.getName())) {
+                        throw new UnauthorizedException("Anda harus login untuk mengakses export Sewing");
+                }
+                User user = userRepository.findByUsername(authentication.getName())
+                                .orElseThrow(() -> new UnauthorizedException("User yang login tidak ditemukan"));
+
+                String role = user.getRole().name();
+
+                if ("ADMIN".equals(role) && user.getSection() != null && ("SEWING".equals(user.getSection().name()))) {
+                        return;
+                }
+
+                throw new UnauthorizedException("Hanya Admin Sewing yang mempunyai akses untuk export laporan Sewing");
+        }
 }
