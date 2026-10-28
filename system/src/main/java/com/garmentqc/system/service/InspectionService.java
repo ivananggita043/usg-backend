@@ -287,26 +287,18 @@ public class InspectionService {
                                         || !user.getSection().equals(line.getSection())) {
 
                                 throw new AccessDeniedException(
-                                                "Admin hanya dapat menggunakan line " + "dari section miliknya");
+                                                "Admin hanya dapat menggunakan line dari section miliknya");
                         }
                         return;
                 }
 
                 if (USER.equals(role)) {
-                        boolean assigned = userLineRepository.findByUser(user)
-                                        .stream()
-                                        .anyMatch(userLine -> userLine.getLine() != null
-                                                        && userLine.getLine().getId()
-                                                                        .equals(line.getId()));
-
-                        if (!assigned) {
-                                throw new UnauthorizedException("Kamu tidak memiliki akses ke line tersebut");
-                        }
 
                         return;
                 }
 
-                throw new UnauthorizedException("Role tidak memiliki izin untuk membuat " + "atau mengubah inspection");
+                throw new UnauthorizedException(
+                                "Role tidak memiliki izin untuk membuat atau mengubah inspection");
         }
 
         private void validateInspectionAccess(User user, Inspection inspection) {
@@ -664,8 +656,6 @@ public class InspectionService {
                 return value.trim().toUpperCase(Locale.ROOT);
         }
 
-        // ===================== SEARCH DEFECT =====================
-
         @Transactional(readOnly = true)
         public List<DefectArea> searchDefectAreas(String keyword) {
                 if (keyword == null || keyword.isBlank()) {
@@ -751,8 +741,6 @@ public class InspectionService {
                                 .map(DefectSearchResponse::from)
                                 .toList();
         }
-
-        // =========================================================
 
         private double calculatePercentage(int totalDefect, int inspectQuantity) {
                 if (inspectQuantity <= 0) {

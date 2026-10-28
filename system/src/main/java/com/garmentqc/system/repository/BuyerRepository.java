@@ -6,4 +6,6 @@ import com.garmentqc.system.model.Buyer;
 
 public interface BuyerRepository extends JpaRepository<Buyer, String> {
 
+    boolean existsByNameIgnoreCase(String name);
+    
 }

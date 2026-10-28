@@ -12,4 +12,6 @@ public interface InspectionRepository extends JpaRepository<Inspection, String> 
 
     List<Inspection> findByCreatedAtGreaterThanEqualAndCreatedAtLessThan(Instant start, Instant end);
 
+    boolean existsByBuyerNameIgnoreCase(String buyerName);
+
 }

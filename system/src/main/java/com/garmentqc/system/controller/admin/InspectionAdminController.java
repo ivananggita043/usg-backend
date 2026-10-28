@@ -16,6 +16,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.garmentqc.system.dto.DefectSearchResponse;
 import com.garmentqc.system.dto.InspectionRequest;
 import com.garmentqc.system.dto.InspectionResponse;
 import com.garmentqc.system.service.InspectionService;
@@ -57,4 +58,22 @@ public class InspectionAdminController {
         inspectionService.delete(id);
         return ResponseEntity.noContent().build();
     }
+
+    @GetMapping("/defects/search")
+    public ResponseEntity<List<DefectSearchResponse>> searchDefects(
+            @RequestParam(required = false) String defectAreaId,
+            @RequestParam(required = false) String keyword) {
+        return ResponseEntity.ok(inspectionService.searchDefects(defectAreaId, keyword));
+    }
+
+    @GetMapping("/defect-areas/search")
+    public ResponseEntity<List<DefectSearchResponse.Area>> searchDefectAreas(
+            @RequestParam(required = false) String keyword) {
+        return ResponseEntity.ok(
+                inspectionService.searchDefectAreas(keyword)
+                        .stream()
+                        .map(a -> new DefectSearchResponse.Area(a.getId(), a.getName()))
+                        .toList());
+    }
+
 }

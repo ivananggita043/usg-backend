@@ -93,7 +93,7 @@ public class SewingReportExcelSuperAdminController {
 
                         @RequestParam(defaultValue = "ALL") String line,
 
-                        @RequestParam(defaultValue = "ALL") String reportType,
+                        @RequestParam(defaultValue = "LINEWISE") String reportType,
 
                         @AuthenticationPrincipal User currentUser) throws IOException {
 
@@ -128,16 +128,21 @@ public class SewingReportExcelSuperAdminController {
 
         private String normalizeReportType(String reportType) {
                 if (reportType == null || reportType.isBlank()) {
-                        return "ALL";
+                        return "LINEWISE";
                 }
 
                 String normalized = reportType.trim().toUpperCase(Locale.ROOT);
 
-                if (!normalized.equals("ALL")
+                if (normalized.equals("ALL")) {
+                        normalized = "LINEWISE";
+                }
+
+                if (!normalized.equals("LINEWISE")
                                 && !normalized.equals("BUYERWISE")
-                                && !normalized.equals("STYLEWISE")) {
+                                && !normalized.equals("STYLEWISE")
+                                && !normalized.equals("DATEWISE")) {
                         throw new BadRequestException(
-                                        "reportType harus ALL, BUYERWISE, atau STYLEWISE.");
+                                        "reportType harus LINEWISE, BUYERWISE, STYLEWISE, atau DATEWISE.");
                 }
 
                 return normalized;
