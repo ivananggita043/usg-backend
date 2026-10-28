@@ -40,6 +40,9 @@ public class CuttingReportExcelService {
 
         private static final int COLUMN_COUNT = 10;
 
+        private static final Color TITLE_PASTEL = new Color(168, 200, 178);
+        private static final Color SUBTITLE_PASTEL = new Color(198, 215, 202);
+
         private static final int PROCESS_COL = 0;
         private static final int BUYER_COL = 1;
         private static final int STYLE_COL = 2;
@@ -50,7 +53,6 @@ public class CuttingReportExcelService {
         private static final int PERCENTAGE_COL = 7;
         private static final int OPERATOR_COL = 8;
         private static final int DETAIL_DEFECT_COL = 9;
-
         private static final int HEADER_ROW_INDEX = 5;
         private static final int FIRST_DATA_ROW_INDEX = HEADER_ROW_INDEX + 1;
 
@@ -140,17 +142,14 @@ public class CuttingReportExcelService {
                                         setText(row, COLOR_COL, detail.getColorName(), textStyle);
                                         setText(row, LOT_COL, detail.getLot(), textStyle);
 
-                                        setNumber(row, QTY_INSPECT_COL,
-                                                        detail.getQuantityInspect(), numberStyle);
-                                        setNumber(row, QTY_DEFECT_COL,
-                                                        detail.getQuantityDefect(), numberStyle);
-                                        setPercentage(row, PERCENTAGE_COL,
-                                                        detail.getDefectPercentage(), percentageStyle);
+                                        setNumber(row, QTY_INSPECT_COL, detail.getQuantityInspect(), numberStyle);
+                                        setNumber(row, QTY_DEFECT_COL, detail.getQuantityDefect(), numberStyle);
 
-                                        setText(row, OPERATOR_COL,
-                                                        detail.getOperatorName(), textStyle);
-                                        setText(row, DETAIL_DEFECT_COL,
-                                                        detail.getDefectTypeName(), textStyle);
+                                        setPercentage(row, PERCENTAGE_COL, detail.getDefectPercentage(),
+                                                        percentageStyle);
+
+                                        setText(row, OPERATOR_COL, detail.getOperatorName(), textStyle);
+                                        setText(row, DETAIL_DEFECT_COL, detail.getDefectTypeName(), textStyle);
 
                                         grandQuantityInspect += detail.getQuantityInspect();
                                         grandDefects += detail.getQuantityDefect();
@@ -167,12 +166,12 @@ public class CuttingReportExcelService {
                                         setText(subtotalRow, col, "", subtotalCenterStyle);
                                 }
 
-                                setNumber(subtotalRow, QTY_INSPECT_COL,
-                                                process.getTotalQuantityInspect(), subtotalCenterStyle);
-                                setNumber(subtotalRow, QTY_DEFECT_COL,
-                                                process.getTotalDefects(), subtotalCenterStyle);
-                                setPercentage(subtotalRow, PERCENTAGE_COL,
-                                                process.getDefectPercentage(), subtotalPercentageStyle);
+                                setNumber(subtotalRow, QTY_INSPECT_COL, process.getTotalQuantityInspect(),
+                                                subtotalCenterStyle);
+                                setNumber(subtotalRow, QTY_DEFECT_COL, process.getTotalDefects(), subtotalCenterStyle);
+
+                                setPercentage(subtotalRow, PERCENTAGE_COL, process.getDefectPercentage(),
+                                                subtotalPercentageStyle);
 
                                 for (int col = OPERATOR_COL; col < COLUMN_COUNT; col++) {
                                         setText(subtotalRow, col, "", subtotalCenterStyle);
@@ -191,12 +190,10 @@ public class CuttingReportExcelService {
                                 setText(grandRow, col, "", grandTotalCenterStyle);
                         }
 
-                        setNumber(grandRow, QTY_INSPECT_COL,
-                                        grandQuantityInspect, grandTotalCenterStyle);
-                        setNumber(grandRow, QTY_DEFECT_COL,
-                                        grandDefects, grandTotalCenterStyle);
-                        setPercentage(grandRow, PERCENTAGE_COL,
-                                        calculatePercentage(grandDefects, grandQuantityInspect),
+                        setNumber(grandRow, QTY_INSPECT_COL, grandQuantityInspect, grandTotalCenterStyle);
+                        setNumber(grandRow, QTY_DEFECT_COL, grandDefects, grandTotalCenterStyle);
+
+                        setPercentage(grandRow, PERCENTAGE_COL, calculatePercentage(grandDefects, grandQuantityInspect),
                                         grandTotalPercentageStyle);
 
                         for (int col = OPERATOR_COL; col < COLUMN_COUNT; col++) {
@@ -214,9 +211,7 @@ public class CuttingReportExcelService {
                         sheet.autoSizeColumn(DETAIL_DEFECT_COL);
 
                         int currentWidth = sheet.getColumnWidth(DETAIL_DEFECT_COL);
-                        sheet.setColumnWidth(
-                                        DETAIL_DEFECT_COL,
-                                        Math.min(currentWidth + 2 * 256, 60 * 256));
+                        sheet.setColumnWidth(DETAIL_DEFECT_COL, Math.min(currentWidth + 2 * 256, 60 * 256));
 
                         sheet.createFreezePane(QTY_INSPECT_COL, FIRST_DATA_ROW_INDEX);
 
@@ -240,9 +235,7 @@ public class CuttingReportExcelService {
                 }
         }
 
-        private byte[] exportPeriodReport(CuttingReportResponse report)
-                        throws IOException {
-
+        private byte[] exportPeriodReport(CuttingReportResponse report) throws IOException {
                 try (Workbook workbook = new XSSFWorkbook();
                                 ByteArrayOutputStream output = new ByteArrayOutputStream()) {
 
@@ -353,10 +346,6 @@ public class CuttingReportExcelService {
                         sheet.addMergedRegion(new CellRangeAddress(
                                         headerRowIndex, dateRowIndex, percentageCol, percentageCol));
 
-                        /*
-                         * Struktur:
-                         * process check -> defect type -> tanggal -> jumlah defect.
-                         */
                         Map<CuttingProcessCheck, Map<String, Map<LocalDate, Long>>> processDefects = new LinkedHashMap<>();
 
                         Map<LocalDate, Long> grandInspectByDate = new TreeMap<>();
@@ -490,11 +479,6 @@ public class CuttingReportExcelService {
                                                                 process.getTotalQuantityInspect()),
                                                 subtotalPercentageStyle);
 
-                                /*
-                                 * PERBAIKAN UTAMA:
-                                 * Isi sel paling atas sebelum melakukan merge.
-                                 * Excel menampilkan nilai dari sel kiri-atas pada area merge.
-                                 */
                                 Row firstProcessRow = sheet.getRow(processStartRow);
 
                                 if (firstProcessRow == null) {
@@ -723,10 +707,12 @@ public class CuttingReportExcelService {
                 Font font = workbook.createFont();
                 font.setBold(true);
                 font.setFontHeightInPoints((short) 16);
-                font.setColor(IndexedColors.WHITE.getIndex());
+                font.setColor(IndexedColors.DARK_BLUE.getIndex());
 
                 style.setFont(font);
-                setFillColor(style, 96, 125, 107);
+
+                setFillColor(style, 168, 200, 178);
+
                 style.setAlignment(HorizontalAlignment.CENTER);
                 style.setVerticalAlignment(VerticalAlignment.CENTER);
 
@@ -739,10 +725,15 @@ public class CuttingReportExcelService {
                 Font font = workbook.createFont();
                 font.setBold(true);
                 font.setFontHeightInPoints((short) 10);
-                font.setColor(IndexedColors.WHITE.getIndex());
+                font.setColor(IndexedColors.DARK_BLUE.getIndex());
 
                 style.setFont(font);
-                setFillColor(style, 96, 125, 107);
+                setFillColor(
+                                style,
+                                SUBTITLE_PASTEL.getRed(),
+                                SUBTITLE_PASTEL.getGreen(),
+                                SUBTITLE_PASTEL.getBlue());
+
                 style.setAlignment(HorizontalAlignment.CENTER);
                 style.setVerticalAlignment(VerticalAlignment.CENTER);
 
@@ -793,10 +784,14 @@ public class CuttingReportExcelService {
                 style.setBorderLeft(BorderStyle.THIN);
                 style.setBorderRight(BorderStyle.THIN);
 
-                style.setBottomBorderColor(IndexedColors.GREY_25_PERCENT.getIndex());
-                style.setTopBorderColor(IndexedColors.GREY_25_PERCENT.getIndex());
-                style.setLeftBorderColor(IndexedColors.GREY_25_PERCENT.getIndex());
-                style.setRightBorderColor(IndexedColors.GREY_25_PERCENT.getIndex());
+                XSSFColor borderColor = new XSSFColor(
+                                new Color(128, 128, 128),
+                                new DefaultIndexedColorMap());
+
+                ((XSSFCellStyle) style).setBottomBorderColor(borderColor);
+                ((XSSFCellStyle) style).setTopBorderColor(borderColor);
+                ((XSSFCellStyle) style).setLeftBorderColor(borderColor);
+                ((XSSFCellStyle) style).setRightBorderColor(borderColor);
 
                 return style;
         }

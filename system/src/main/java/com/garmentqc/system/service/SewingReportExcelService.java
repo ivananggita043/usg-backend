@@ -1,4 +1,3 @@
-
 package com.garmentqc.system.service;
 
 import com.garmentqc.system.model.DefectType;
@@ -7,6 +6,7 @@ import com.garmentqc.system.model.InspectionDefect;
 import com.garmentqc.system.model.Line;
 import com.garmentqc.system.model.User;
 import com.garmentqc.system.repository.InspectionRepository;
+import com.garmentqc.system.repository.LineRepository;
 
 import lombok.RequiredArgsConstructor;
 
@@ -21,6 +21,7 @@ import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.ss.usermodel.VerticalAlignment;
 import org.apache.poi.ss.usermodel.Workbook;
+import org.apache.poi.ss.util.CellRangeAddress;
 import org.apache.poi.xssf.usermodel.DefaultIndexedColorMap;
 import org.apache.poi.xssf.usermodel.XSSFCellStyle;
 import org.apache.poi.xssf.usermodel.XSSFColor;
@@ -33,6 +34,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.awt.Color;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.math.BigInteger;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
@@ -45,6 +47,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
+import java.util.function.Function;
+import java.util.function.ToIntFunction;
 import java.util.stream.Collectors;
 
 @Service
@@ -55,8 +59,33 @@ public class SewingReportExcelService {
     private static final ZoneId ZONE_ID = ZoneId.of("Asia/Jakarta");
     private static final String SEWING = "SEWING";
     private static final DateTimeFormatter DATE_FORMAT = DateTimeFormatter.ofPattern("dd MMMM yyyy");
+
+    private static final Comparator<String> NATURAL_ORDER = (a, b) -> {
+        String[] pa = a.split("(?<=\\d)(?=\\D)|(?<=\\D)(?=\\d)");
+        String[] pb = b.split("(?<=\\d)(?=\\D)|(?<=\\D)(?=\\d)");
+        int n = Math.min(pa.length, pb.length);
+
+        for (int i = 0; i < n; i++) {
+            String x = pa[i];
+            String y = pb[i];
+
+            boolean xNum = !x.isEmpty() && Character.isDigit(x.charAt(0));
+            boolean yNum = !y.isEmpty() && Character.isDigit(y.charAt(0));
+
+            int c = (xNum && yNum)
+                    ? new BigInteger(x).compareTo(new BigInteger(y))
+                    : x.compareToIgnoreCase(y);
+
+            if (c != 0) {
+                return c;
+            }
+        }
+        return Integer.compare(pa.length, pb.length);
+    };
+
     private final InspectionRepository inspectionRepository;
     private final InspectionReportService inspectionReportService;
+    private final LineRepository lineRepository;
 
     public byte[] exportDailySewingExcel(LocalDate date, User currentUser) throws IOException {
         String section = inspectionReportService.resolveSectionForUser(currentUser, SEWING);
@@ -78,25 +107,37 @@ public class SewingReportExcelService {
                         Comparator
                                 .comparing(
                                         (Inspection i) -> i.getLine().getName(),
-                                        Comparator.nullsLast(
-                                                String.CASE_INSENSITIVE_ORDER))
+                                        Comparator.nullsLast(NATURAL_ORDER))
                                 .thenComparing(
                                         Inspection::getCreatedAt,
                                         Comparator.nullsLast(
                                                 Comparator.naturalOrder())))
                 .collect(Collectors.toList());
 
+        List<Line> sewingLines = lineRepository.findAll().stream()
+                .filter(l -> l.getSection() != null)
+                .filter(l -> SEWING.equals(l.getSection().name()))
+                .sorted(Comparator.comparing(
+                        Line::getName,
+                        Comparator.nullsLast(NATURAL_ORDER)))
+                .collect(Collectors.toList());
+
         Map<String, LineData> lineDataMap = new LinkedHashMap<>();
+        for (Line line : sewingLines) {
+            lineDataMap.put(line.getId(), new LineData(line.getName()));
+        }
+
         for (Inspection inspection : inspections) {
             Line line = inspection.getLine();
-            String lineId = line.getId();
-            LineData data = lineDataMap.computeIfAbsent(
-                    lineId,
-                    id -> new LineData(line.getName()));
-            data.addInspection(inspection);
+            lineDataMap
+                    .computeIfAbsent(line.getId(), id -> new LineData(line.getName()))
+                    .addInspection(inspection);
         }
 
         List<LineData> lines = new ArrayList<>(lineDataMap.values());
+        lines.sort(Comparator.comparing(
+                LineData::getLineName,
+                Comparator.nullsLast(NATURAL_ORDER)));
 
         try (
                 Workbook workbook = new XSSFWorkbook();
@@ -104,7 +145,13 @@ public class SewingReportExcelService {
 
             Sheet sheet = workbook.createSheet("Daily Sewing Report");
             ReportStyles styles = new ReportStyles(workbook);
-            int lastColumn = lines.size() + 1;
+
+            int totalColumn = lines.size() + 1;
+            int lastColumn = totalColumn + 1;
+
+            int grandInspect = lines.stream()
+                    .mapToInt(LineData::getInspectQuantity)
+                    .sum();
 
             createReportHeader(sheet, styles, date, lastColumn);
 
@@ -112,100 +159,50 @@ public class SewingReportExcelService {
             int infoStartRow = rowIndex;
 
             rowIndex = writeLineInfoRow(
-                    sheet,
-                    rowIndex++,
-                    "LINE",
-                    lines,
-                    LineData::getLineName,
-                    lastColumn,
-                    styles);
+                    sheet, rowIndex, "LINE", lines,
+                    LineData::getLineName, lastColumn, styles);
 
             rowIndex = writeLineInfoRow(
-                    sheet,
-                    rowIndex++,
-                    "BUYER",
-                    lines,
-                    LineData::getBuyers,
-                    lastColumn,
-                    styles);
+                    sheet, rowIndex, "BUYER", lines,
+                    LineData::getBuyers, lastColumn, styles);
 
             rowIndex = writeLineInfoRow(
-                    sheet,
-                    rowIndex++,
-                    "STYLE",
-                    lines,
-                    LineData::getStyles,
-                    lastColumn,
-                    styles);
+                    sheet, rowIndex, "STYLE", lines,
+                    LineData::getStyles, lastColumn, styles);
 
-            sheet.getRow(infoStartRow)
-                    .getCell(lastColumn)
-                    .setCellValue("TOTAL");
+            sheet.getRow(infoStartRow).getCell(totalColumn).setCellValue("TOTAL");
+            sheet.getRow(infoStartRow).getCell(lastColumn).setCellValue("% DEFECT");
 
-            sheet.addMergedRegion(
-                    new org.apache.poi.ss.util.CellRangeAddress(
-                            infoStartRow,
-                            rowIndex - 1,
-                            lastColumn,
-                            lastColumn));
+            sheet.addMergedRegion(new CellRangeAddress(
+                    infoStartRow, rowIndex - 1, totalColumn, totalColumn));
+            sheet.addMergedRegion(new CellRangeAddress(
+                    infoStartRow, rowIndex - 1, lastColumn, lastColumn));
 
             rowIndex = writeDefectDetails(
-                    sheet,
-                    rowIndex,
-                    lines,
-                    lastColumn,
-                    styles);
+                    sheet, rowIndex, lines, lastColumn, grandInspect, styles);
 
             rowIndex = writeSummaryRow(
-                    sheet,
-                    rowIndex,
-                    "QTY DEFECT",
-                    lines,
-                    LineData::getTotalDefect,
-                    lastColumn,
-                    styles,
-                    styles.summaryStyle,
-                    styles.numberStyle);
+                    sheet, rowIndex, "QTY DEFECT", lines,
+                    LineData::getTotalDefect, lastColumn, styles,
+                    styles.summaryStyle, styles.numberStyle);
 
             rowIndex = writeSummaryRow(
-                    sheet,
-                    rowIndex,
-                    "QTY INSPECT",
-                    lines,
-                    LineData::getInspectQuantity,
-                    lastColumn,
-                    styles,
-                    styles.summaryStyle,
-                    styles.numberStyle);
+                    sheet, rowIndex, "QTY INSPECT", lines,
+                    LineData::getInspectQuantity, lastColumn, styles,
+                    styles.summaryStyle, styles.numberStyle);
 
             rowIndex = writePercentageRow(
-                    sheet,
-                    rowIndex,
-                    lines,
-                    lastColumn,
-                    styles);
+                    sheet, rowIndex, lines, lastColumn, styles);
 
             rowIndex = writeSummaryRow(
-                    sheet,
-                    rowIndex,
-                    "GOOD QC/INSP-DEF",
-                    lines,
-                    LineData::getGoodQuantity,
-                    lastColumn,
-                    styles,
-                    styles.summaryStyle,
-                    styles.numberStyle);
+                    sheet, rowIndex, "GOOD QC/INSP-DEF", lines,
+                    LineData::getGoodQuantity, lastColumn, styles,
+                    styles.summaryStyle, styles.numberStyle);
 
             writeSummaryRow(
-                    sheet,
-                    rowIndex,
-                    "QTY TRANSFER",
-                    lines,
-                    LineData::getTransferQuantity,
-                    lastColumn,
-                    styles,
-                    styles.summaryStyle,
-                    styles.numberStyle);
+                    sheet, rowIndex, "QTY TRANSFER", lines,
+                    LineData::getTransferQuantity, lastColumn, styles,
+                    styles.summaryStyle, styles.numberStyle);
 
             configurePrint(sheet, lastColumn);
             configureColumnWidths(sheet, lines.size());
@@ -240,30 +237,20 @@ public class SewingReportExcelService {
     }
 
     private void createReportHeader(Sheet sheet, ReportStyles styles, LocalDate date, int lastColumn) {
-        createMergedRow(
-                sheet, 0, 0, lastColumn,
-                "PT UNGARAN SARI GARMENT",
-                styles.titleStyle);
+        createMergedRow(sheet, 0, 0, lastColumn,
+                "PT UNGARAN SARI GARMENT", styles.titleStyle);
 
-        createMergedRow(
-                sheet, 1, 0, lastColumn,
-                "DAILY REPORT SEWING SECTION",
-                styles.subtitleStyle);
+        createMergedRow(sheet, 1, 0, lastColumn,
+                "DAILY REPORT SEWING SECTION", styles.subtitleStyle);
 
-        createMergedRow(
-                sheet, 2, 0, lastColumn,
-                "QC DEPARTMENT",
-                styles.subtitleStyle);
+        createMergedRow(sheet, 2, 0, lastColumn,
+                "QC DEPARTMENT", styles.subtitleStyle);
 
-        createMergedRow(
-                sheet, 3, 0, lastColumn,
-                "DEPT: DRESS 2",
-                styles.subtitleStyle);
+        createMergedRow(sheet, 3, 0, lastColumn,
+                "DEPT: DRESS 2", styles.subtitleStyle);
 
-        createMergedRow(
-                sheet, 4, 0, lastColumn,
-                "REPORT DATE: " + date.format(DATE_FORMAT),
-                styles.periodStyle);
+        createMergedRow(sheet, 4, 0, lastColumn,
+                "REPORT DATE: " + date.format(DATE_FORMAT), styles.periodStyle);
     }
 
     private void createMergedRow(Sheet sheet, int rowIndex, int firstColumn, int lastColumn, String value,
@@ -271,7 +258,6 @@ public class SewingReportExcelService {
         Row row = sheet.createRow(rowIndex);
 
         for (int column = firstColumn; column <= lastColumn; column++) {
-
             Cell cell = row.createCell(column);
             cell.setCellStyle(style);
         }
@@ -279,17 +265,13 @@ public class SewingReportExcelService {
         row.getCell(firstColumn).setCellValue(value);
 
         if (firstColumn < lastColumn) {
-            sheet.addMergedRegion(
-                    new org.apache.poi.ss.util.CellRangeAddress(
-                            rowIndex,
-                            rowIndex,
-                            firstColumn,
-                            lastColumn));
+            sheet.addMergedRegion(new CellRangeAddress(
+                    rowIndex, rowIndex, firstColumn, lastColumn));
         }
     }
 
     private int writeLineInfoRow(Sheet sheet, int rowIndex, String label, List<LineData> lines,
-            java.util.function.Function<LineData, String> valueFunction, int lastColumn, ReportStyles styles) {
+            Function<LineData, String> valueFunction, int lastColumn, ReportStyles styles) {
         Row row = sheet.createRow(rowIndex);
 
         Cell labelCell = row.createCell(0);
@@ -300,27 +282,25 @@ public class SewingReportExcelService {
 
         for (LineData line : lines) {
             Cell cell = row.createCell(column++);
-            cell.setCellValue(
-                    nullToEmpty(valueFunction.apply(line)));
+            cell.setCellValue(nullToEmpty(valueFunction.apply(line)));
             cell.setCellStyle(styles.headerCenterStyle);
         }
 
-        Cell totalCell = row.createCell(lastColumn);
+        Cell totalCell = row.createCell(lastColumn - 1);
         totalCell.setCellValue("");
         totalCell.setCellStyle(styles.headerCenterStyle);
+
+        Cell pctCell = row.createCell(lastColumn);
+        pctCell.setCellValue("");
+        pctCell.setCellStyle(styles.headerCenterStyle);
 
         return rowIndex + 1;
     }
 
     private int writeDefectDetails(Sheet sheet, int rowIndex, List<LineData> lines, int lastColumn,
-            ReportStyles styles) {
-        createMergedRow(
-                sheet,
-                rowIndex,
-                0,
-                lastColumn,
-                "DEFECT DETAILS",
-                styles.headerStyle);
+            int grandInspect, ReportStyles styles) {
+        createMergedRow(sheet, rowIndex, 0, lastColumn,
+                "DEFECT DETAILS", styles.headerStyle);
         rowIndex++;
 
         Map<String, Map<String, Map<String, Integer>>> grouped = new TreeMap<>(String.CASE_INSENSITIVE_ORDER);
@@ -331,12 +311,10 @@ public class SewingReportExcelService {
                 grouped
                         .computeIfAbsent(
                                 key.category(),
-                                ignored -> new TreeMap<>(
-                                        String.CASE_INSENSITIVE_ORDER))
+                                ignored -> new TreeMap<>(String.CASE_INSENSITIVE_ORDER))
                         .computeIfAbsent(
                                 key.area(),
-                                ignored -> new TreeMap<>(
-                                        String.CASE_INSENSITIVE_ORDER))
+                                ignored -> new TreeMap<>(String.CASE_INSENSITIVE_ORDER))
                         .merge(
                                 key.defectName(),
                                 entry.getValue(),
@@ -347,18 +325,14 @@ public class SewingReportExcelService {
         for (Map.Entry<String, Map<String, Map<String, Integer>>> categoryEntry : grouped.entrySet()) {
             String categoryName = categoryEntry.getKey();
 
-            createMergedRow(
-                    sheet,
-                    rowIndex,
-                    0,
-                    lastColumn,
-                    categoryName,
-                    styles.categoryStyle);
+            createMergedRow(sheet, rowIndex, 0, lastColumn,
+                    categoryName, styles.categoryStyle);
 
             rowIndex++;
 
             for (Map.Entry<String, Map<String, Integer>> areaEntry : categoryEntry.getValue().entrySet()) {
                 String areaName = areaEntry.getKey();
+
                 if (!areaName.isBlank()) {
                     Row areaRow = sheet.createRow(rowIndex++);
 
@@ -367,9 +341,7 @@ public class SewingReportExcelService {
                     areaCell.setCellStyle(styles.areaStyle);
 
                     for (int column = 1; column <= lastColumn; column++) {
-
-                        areaRow.createCell(column)
-                                .setCellStyle(styles.areaStyle);
+                        areaRow.createCell(column).setCellStyle(styles.areaStyle);
                     }
                 }
 
@@ -383,13 +355,10 @@ public class SewingReportExcelService {
                     int totalQuantity = 0;
 
                     for (int column = 0; column < lines.size(); column++) {
-
                         LineData line = lines.get(column);
 
                         int quantity = line.getDefectQuantity(
-                                categoryName,
-                                areaName,
-                                defectName);
+                                categoryName, areaName, defectName);
 
                         totalQuantity += quantity;
 
@@ -400,13 +369,18 @@ public class SewingReportExcelService {
                         cell.setCellStyle(styles.defectNumberStyle);
                     }
 
-                    Cell totalCell = row.createCell(lastColumn);
-
+                    Cell totalCell = row.createCell(lastColumn - 1);
                     if (totalQuantity != 0) {
                         totalCell.setCellValue(totalQuantity);
                     }
-
                     totalCell.setCellStyle(styles.defectTotalStyle);
+
+                    Cell pctCell = row.createCell(lastColumn);
+                    if (totalQuantity != 0 && grandInspect > 0) {
+                        pctCell.setCellValue((double) totalQuantity / grandInspect);
+                    }
+                    pctCell.setCellStyle(styles.defectPercentStyle);
+
                     rowIndex++;
                 }
             }
@@ -416,7 +390,7 @@ public class SewingReportExcelService {
     }
 
     private int writeSummaryRow(Sheet sheet, int rowIndex, String label, List<LineData> lines,
-            java.util.function.ToIntFunction<LineData> valueFunction, int lastColumn, ReportStyles styles,
+            ToIntFunction<LineData> valueFunction, int lastColumn, ReportStyles styles,
             CellStyle rowStyle, CellStyle valueStyle) {
         Row row = sheet.createRow(rowIndex);
 
@@ -430,21 +404,22 @@ public class SewingReportExcelService {
         for (LineData line : lines) {
             int value = valueFunction.applyAsInt(line);
             grandTotal += value;
-            Cell cell = row.createCell(column++);
 
+            Cell cell = row.createCell(column++);
             if (value != 0) {
                 cell.setCellValue(value);
             }
-
             cell.setCellStyle(valueStyle);
         }
 
-        Cell totalCell = row.createCell(lastColumn);
+        Cell totalCell = row.createCell(lastColumn - 1);
         if (grandTotal != 0) {
             totalCell.setCellValue(grandTotal);
         }
-
         totalCell.setCellStyle(styles.grandTotalStyle);
+
+        row.createCell(lastColumn).setCellStyle(styles.grandTotalStyle);
+
         return rowIndex + 1;
     }
 
@@ -472,11 +447,9 @@ public class SewingReportExcelService {
             totalDefect += defect;
 
             Cell cell = row.createCell(column++);
-
             if (percentage != 0.0) {
                 cell.setCellValue(percentage);
             }
-
             cell.setCellStyle(styles.percentageStyle);
         }
 
@@ -484,13 +457,13 @@ public class SewingReportExcelService {
                 ? 0.0
                 : (double) totalDefect / totalInspect;
 
-        Cell totalCell = row.createCell(lastColumn);
-
+        Cell totalCell = row.createCell(lastColumn - 1);
         if (grandPercentage != 0.0) {
             totalCell.setCellValue(grandPercentage);
         }
-
         totalCell.setCellStyle(styles.grandPercentageStyle);
+
+        row.createCell(lastColumn).setCellStyle(styles.grandPercentageStyle);
 
         return rowIndex + 1;
     }
@@ -499,11 +472,11 @@ public class SewingReportExcelService {
         sheet.setColumnWidth(0, 30 * 256);
 
         for (int column = 1; column <= lineCount; column++) {
-
             sheet.setColumnWidth(column, 14 * 256);
         }
 
-        sheet.setColumnWidth(lineCount + 1, 14 * 256);
+        sheet.setColumnWidth(lineCount + 1, 14 * 256); 
+        sheet.setColumnWidth(lineCount + 2, 14 * 256); 
     }
 
     private void configureRowHeights(Sheet sheet) {
@@ -524,18 +497,6 @@ public class SewingReportExcelService {
                 row.setHeightInPoints(16);
             }
         }
-    }
-
-    private static void applyBorders(CellStyle style) {
-        style.setBorderBottom(BorderStyle.THIN);
-        style.setBorderTop(BorderStyle.THIN);
-        style.setBorderLeft(BorderStyle.THIN);
-        style.setBorderRight(BorderStyle.THIN);
-
-        style.setBottomBorderColor(IndexedColors.GREY_25_PERCENT.getIndex());
-        style.setTopBorderColor(IndexedColors.GREY_25_PERCENT.getIndex());
-        style.setLeftBorderColor(IndexedColors.GREY_25_PERCENT.getIndex());
-        style.setRightBorderColor(IndexedColors.GREY_25_PERCENT.getIndex());
     }
 
     private void configurePrint(Sheet sheet, int lastColumn) {
@@ -593,13 +554,11 @@ public class SewingReportExcelService {
 
             if (inspection.getBuyerName() != null
                     && !inspection.getBuyerName().isBlank()) {
-
                 buyers.add(inspection.getBuyerName());
             }
 
             if (inspection.getStyleCode() != null
                     && !inspection.getStyleCode().isBlank()) {
-
                 styles.add(inspection.getStyleCode());
             }
 
@@ -631,7 +590,6 @@ public class SewingReportExcelService {
 
                 if (defectType.getDefectArea() != null
                         && defectType.getDefectArea().getName() != null) {
-
                     area = defectType.getDefectArea().getName();
                 }
 
@@ -642,10 +600,7 @@ public class SewingReportExcelService {
                         area,
                         defectName);
 
-                defectQuantities.merge(
-                        key,
-                        quantity,
-                        Integer::sum);
+                defectQuantities.merge(key, quantity, Integer::sum);
 
                 totalDefect += quantity;
             }
@@ -718,152 +673,110 @@ public class SewingReportExcelService {
         private final CellStyle numberStyle;
         private final CellStyle defectNumberStyle;
         private final CellStyle defectTotalStyle;
+        private final CellStyle defectPercentStyle;
         private final CellStyle summaryStyle;
         private final CellStyle grandTotalStyle;
         private final CellStyle percentageStyle;
         private final CellStyle grandPercentageStyle;
 
-        private static final Color GREEN_HEADER = new Color(96, 125, 107);
         private static final Color GREEN_LIGHT = new Color(238, 243, 238);
         private static final Color BLUE_HEADER = new Color(220, 230, 239);
         private static final Color BEIGE = new Color(245, 240, 230);
         private static final Color GREEN_TOTAL = new Color(220, 232, 223);
         private static final Color YELLOW_LIGHT = new Color(255, 249, 196);
+        private static final Color TITLE_PASTEL = new Color(168, 200, 178);
+        private static final Color SUBTITLE_PASTEL = new Color(198, 215, 202);
 
         private ReportStyles(Workbook workbook) {
             titleStyle = createStyle(
-                    workbook,
-                    GREEN_HEADER,
-                    IndexedColors.WHITE.getIndex(),
-                    (short) 14,
-                    true,
-                    HorizontalAlignment.CENTER);
+                    workbook, TITLE_PASTEL,
+                    IndexedColors.DARK_BLUE.getIndex(),
+                    (short) 14, true, HorizontalAlignment.CENTER);
 
             subtitleStyle = createStyle(
-                    workbook,
-                    GREEN_HEADER,
-                    IndexedColors.WHITE.getIndex(),
-                    (short) 9,
-                    true,
-                    HorizontalAlignment.CENTER);
+                    workbook, SUBTITLE_PASTEL,
+                    IndexedColors.DARK_BLUE.getIndex(),
+                    (short) 9, true, HorizontalAlignment.CENTER);
 
             periodStyle = createStyle(
-                    workbook,
-                    GREEN_LIGHT,
+                    workbook, GREEN_LIGHT,
                     IndexedColors.DARK_BLUE.getIndex(),
-                    (short) 8,
-                    false,
-                    HorizontalAlignment.LEFT);
+                    (short) 8, false, HorizontalAlignment.CENTER);
 
             headerStyle = createStyle(
-                    workbook,
-                    BLUE_HEADER,
+                    workbook, BLUE_HEADER,
                     IndexedColors.DARK_BLUE.getIndex(),
-                    (short) 9,
-                    true,
-                    HorizontalAlignment.CENTER);
+                    (short) 9, true, HorizontalAlignment.LEFT);
 
             headerLabelStyle = createStyle(
-                    workbook,
-                    BLUE_HEADER,
+                    workbook, BLUE_HEADER,
                     IndexedColors.DARK_BLUE.getIndex(),
-                    (short) 9,
-                    true,
-                    HorizontalAlignment.LEFT);
+                    (short) 9, true, HorizontalAlignment.LEFT);
 
             headerCenterStyle = createStyle(
-                    workbook,
-                    BLUE_HEADER,
+                    workbook, BLUE_HEADER,
                     IndexedColors.DARK_BLUE.getIndex(),
-                    (short) 9,
-                    true,
-                    HorizontalAlignment.CENTER);
-
+                    (short) 9, true, HorizontalAlignment.CENTER);
             headerCenterStyle.setWrapText(true);
 
             categoryStyle = createStyle(
-                    workbook,
-                    BLUE_HEADER,
+                    workbook, BLUE_HEADER,
                     IndexedColors.DARK_BLUE.getIndex(),
-                    (short) 9,
-                    true,
-                    HorizontalAlignment.LEFT);
+                    (short) 9, true, HorizontalAlignment.LEFT);
 
             areaStyle = createStyle(
-                    workbook,
-                    YELLOW_LIGHT,
+                    workbook, YELLOW_LIGHT,
                     IndexedColors.BLACK.getIndex(),
-                    (short) 9,
-                    false,
-                    HorizontalAlignment.LEFT);
+                    (short) 9, false, HorizontalAlignment.LEFT);
 
             bodyStyle = createStyle(
-                    workbook,
-                    Color.WHITE,
+                    workbook, Color.WHITE,
                     IndexedColors.BLACK.getIndex(),
-                    (short) 9,
-                    false,
-                    HorizontalAlignment.LEFT);
+                    (short) 9, false, HorizontalAlignment.LEFT);
 
             numberStyle = createStyle(
-                    workbook,
-                    BEIGE,
+                    workbook, BEIGE,
                     IndexedColors.DARK_BLUE.getIndex(),
-                    (short) 9,
-                    false,
-                    HorizontalAlignment.CENTER);
+                    (short) 9, false, HorizontalAlignment.CENTER);
 
             defectNumberStyle = createStyle(
-                    workbook,
-                    Color.WHITE,
+                    workbook, Color.WHITE,
                     IndexedColors.BLACK.getIndex(),
-                    (short) 9,
-                    false,
-                    HorizontalAlignment.CENTER);
+                    (short) 9, false, HorizontalAlignment.CENTER);
 
             defectTotalStyle = createStyle(
-                    workbook,
-                    GREEN_TOTAL,
+                    workbook, GREEN_TOTAL,
                     IndexedColors.DARK_GREEN.getIndex(),
-                    (short) 9,
-                    true,
-                    HorizontalAlignment.CENTER);
+                    (short) 9, true, HorizontalAlignment.CENTER);
+
+            defectPercentStyle = createStyle(
+                    workbook, GREEN_TOTAL,
+                    IndexedColors.DARK_GREEN.getIndex(),
+                    (short) 9, true, HorizontalAlignment.CENTER);
+            defectPercentStyle.setDataFormat(
+                    workbook.createDataFormat().getFormat("0.00%"));
 
             summaryStyle = createStyle(
-                    workbook,
-                    BEIGE,
+                    workbook, BEIGE,
                     IndexedColors.DARK_BLUE.getIndex(),
-                    (short) 9,
-                    true,
-                    HorizontalAlignment.LEFT);
+                    (short) 9, true, HorizontalAlignment.LEFT);
 
             grandTotalStyle = createStyle(
-                    workbook,
-                    GREEN_TOTAL,
+                    workbook, GREEN_TOTAL,
                     IndexedColors.DARK_GREEN.getIndex(),
-                    (short) 9,
-                    true,
-                    HorizontalAlignment.CENTER);
+                    (short) 9, true, HorizontalAlignment.CENTER);
 
             percentageStyle = createStyle(
-                    workbook,
-                    BEIGE,
+                    workbook, BEIGE,
                     IndexedColors.DARK_BLUE.getIndex(),
-                    (short) 9,
-                    true,
-                    HorizontalAlignment.CENTER);
-
-            grandPercentageStyle = createStyle(
-                    workbook,
-                    GREEN_TOTAL,
-                    IndexedColors.DARK_GREEN.getIndex(),
-                    (short) 9,
-                    true,
-                    HorizontalAlignment.CENTER);
-
+                    (short) 9, true, HorizontalAlignment.CENTER);
             percentageStyle.setDataFormat(
                     workbook.createDataFormat().getFormat("0.00%"));
 
+            grandPercentageStyle = createStyle(
+                    workbook, GREEN_TOTAL,
+                    IndexedColors.DARK_GREEN.getIndex(),
+                    (short) 9, true, HorizontalAlignment.CENTER);
             grandPercentageStyle.setDataFormat(
                     workbook.createDataFormat().getFormat("0.00%"));
         }
@@ -882,10 +795,10 @@ public class SewingReportExcelService {
             style.setBorderLeft(BorderStyle.THIN);
             style.setBorderRight(BorderStyle.THIN);
 
-            style.setTopBorderColor(IndexedColors.GREY_25_PERCENT.getIndex());
-            style.setBottomBorderColor(IndexedColors.GREY_25_PERCENT.getIndex());
-            style.setLeftBorderColor(IndexedColors.GREY_25_PERCENT.getIndex());
-            style.setRightBorderColor(IndexedColors.GREY_25_PERCENT.getIndex());
+            style.setTopBorderColor(IndexedColors.GREY_50_PERCENT.getIndex());
+            style.setBottomBorderColor(IndexedColors.GREY_50_PERCENT.getIndex());
+            style.setLeftBorderColor(IndexedColors.GREY_50_PERCENT.getIndex());
+            style.setRightBorderColor(IndexedColors.GREY_50_PERCENT.getIndex());
 
             XSSFFont font = (XSSFFont) workbook.createFont();
 

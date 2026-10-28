@@ -57,8 +57,6 @@ public class InspectionUserController {
                         .toList());
     }
 
-    // ========================================================
-
     @GetMapping("/{id}")
     public ResponseEntity<InspectionResponse> getById(@PathVariable String id) {
         return ResponseEntity.ok(inspectionService.getById(id));

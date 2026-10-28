@@ -42,11 +42,13 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.garmentqc.system.enums.DefectCategory;
 import com.garmentqc.system.exception.BadRequestException;
+import com.garmentqc.system.exception.ResourceNotFoundException;
 import com.garmentqc.system.exception.UnauthorizedException;
 import com.garmentqc.system.model.DefectType;
 import com.garmentqc.system.model.Inspection;
 import com.garmentqc.system.model.InspectionDefect;
 import com.garmentqc.system.model.User;
+import com.garmentqc.system.repository.BuyerRepository;
 import com.garmentqc.system.repository.InspectionRepository;
 
 import lombok.RequiredArgsConstructor;
@@ -67,9 +69,11 @@ public class WashingPeriodReportExcelService {
 
     private final InspectionRepository inspectionRepository;
     private final InspectionReportService inspectionReportService;
+    private final BuyerRepository buyerRepository;
 
     public byte[] exportWeeklyWashingExcel(LocalDate date, String reportType, String buyer, String style,
             User currentUser) throws IOException {
+
         if (date == null) {
             throw new BadRequestException("Tanggal laporan wajib diisi.");
         }
@@ -87,7 +91,7 @@ public class WashingPeriodReportExcelService {
         try {
             period = YearMonth.of(year, month);
         } catch (java.time.DateTimeException ex) {
-            throw new BadRequestException("Bulan atau tahun laporan tidak valid.");
+            throw new ResourceNotFoundException("Bulan atau tahun laporan tidak valid.");
         }
 
         return exportPeriod(
@@ -111,6 +115,15 @@ public class WashingPeriodReportExcelService {
         String reportType = normalizeReportType(reportTypeValue);
         String buyerFilter = normalizeFilter(buyerValue);
         String styleFilter = normalizeFilter(styleValue);
+
+        if ("BUYERWISE".equals(reportType)) {
+            validateBuyerExists(buyerFilter);
+        }
+
+        if ("STYLEWISE".equals(reportType) && "ALL".equalsIgnoreCase(styleFilter)) {
+            throw new BadRequestException(
+                    "Untuk laporan STYLEWISE, pilih satu style terlebih dahulu.");
+        }
 
         Instant startInstant = start.atStartOfDay(ZONE).toInstant();
         Instant endExclusive = end.plusDays(1).atStartOfDay(ZONE).toInstant();
@@ -223,17 +236,16 @@ public class WashingPeriodReportExcelService {
 
         for (Map.Entry<String, List<Inspection>> groupEntry : groups.entrySet()) {
 
-            String groupLabel = groupEntry.getKey();
             List<Inspection> groupInspections = groupEntry.getValue();
 
             String heading;
 
             if ("BUYERWISE".equals(reportType)) {
-                heading = "BUYER: " + groupLabel;
+                heading = "BUYER: " + buyerFilter;
             } else if ("STYLEWISE".equals(reportType)) {
-                heading = "BUYER / STYLE: " + groupLabel;
+                heading = "STYLE: " + styleFilter;
             } else {
-                heading = "ALL WASHING DATA - " + titleSuffix;
+                heading = "WASHING DATA - " + titleSuffix;
             }
 
             mergedRow(sheet, rowIndex++, 0, lastColumn,
@@ -363,14 +375,14 @@ public class WashingPeriodReportExcelService {
             }
 
             rowIndex = writeSummaryRow(
-                    sheet, rowIndex, "GOOD QC/INSP-DEF",
+                    sheet, rowIndex, "GOOD QC",
                     goodByDay, totalColumn, sum(goodByDay),
                     percentColumn, null, styles);
 
-            rowIndex = writeSummaryRow(
-                    sheet, rowIndex, "QTY TRANSFER",
-                    transferByDay, totalColumn, sum(transferByDay),
-                    percentColumn, null, styles);
+            // rowIndex = writeSummaryRow(
+            //         sheet, rowIndex, "QTY TRANSFER",
+            //         transferByDay, totalColumn, sum(transferByDay),
+            //         percentColumn, null, styles);
 
             rowIndex += 2;
         }
@@ -496,35 +508,26 @@ public class WashingPeriodReportExcelService {
         return rowIndex;
     }
 
-    private Map<String, List<Inspection>> groupInspections(List<Inspection> inspections, String reportType) {
-        Map<String, List<Inspection>> groups = new TreeMap<>(String.CASE_INSENSITIVE_ORDER);
+    private Map<String, List<Inspection>> groupInspections(
+            List<Inspection> inspections,
+            String reportType) {
 
-        if ("ALL".equals(reportType)) {
-            groups.put("ALL DATA", inspections);
-            return groups;
+        Map<String, List<Inspection>> groups = new LinkedHashMap<>();
+
+        // Hanya satu grup data per sheet.
+        // Data sudah difilter berdasarkan buyer/style dan kemudian
+        // diakumulasikan per tanggal.
+        String key;
+
+        if ("BUYERWISE".equals(reportType)) {
+            key = "SELECTED BUYER";
+        } else if ("STYLEWISE".equals(reportType)) {
+            key = "SELECTED STYLE";
+        } else {
+            key = "ALL DATA";
         }
 
-        for (Inspection inspection : inspections) {
-            String key;
-
-            if ("BUYERWISE".equals(reportType)) {
-                key = safeLabel(
-                        inspection.getBuyerName(), "UNKNOWN BUYER");
-            } else {
-                key = safeLabel(
-                        inspection.getBuyerName(), "UNKNOWN BUYER")
-                        + " / "
-                        + safeLabel(
-                                inspection.getStyleCode(), "UNKNOWN STYLE");
-            }
-
-            groups.computeIfAbsent(key, ignored -> new ArrayList<>()).add(inspection);
-        }
-
-        if (groups.isEmpty()) {
-            groups.put("NO DATA", List.of());
-        }
-
+        groups.put(key, inspections);
         return groups;
     }
 
@@ -634,6 +637,24 @@ public class WashingPeriodReportExcelService {
         }
 
         cell.setCellStyle(style);
+    }
+
+    private void validateBuyerExists(String buyer) {
+        if (buyer == null || buyer.isBlank()
+                || "ALL".equalsIgnoreCase(buyer.trim())) {
+            throw new BadRequestException(
+                    "Untuk laporan BUYERWISE, pilih satu buyer terlebih dahulu.");
+        }
+
+        String buyerName = buyer.trim();
+
+        boolean exists = inspectionRepository
+                .existsByBuyerNameIgnoreCase(buyerName);
+
+        if (!exists) {
+            throw new BadRequestException(
+                    "Buyer '" + buyerName + "' tidak ditemukan.");
+        }
     }
 
     private record DefectKey(String area, String name) {

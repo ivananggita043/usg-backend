@@ -26,7 +26,6 @@ import com.garmentqc.system.exception.BadRequestException;
 import com.garmentqc.system.exception.UnauthorizedException;
 import com.garmentqc.system.model.User;
 import com.garmentqc.system.repository.UserRepository;
-import com.garmentqc.system.service.WashingGroupedReportExcelService;
 import com.garmentqc.system.service.WashingPeriodReportExcelService;
 import com.garmentqc.system.service.WashingReportExcelService;
 
@@ -43,9 +42,10 @@ public class WashingReportExcelSuperAdminController {
 
         private static final DateTimeFormatter MONTH_FORMAT = DateTimeFormatter.ofPattern("yyyy-MM");
 
+        private static final DateTimeFormatter DATE_FORMAT = DateTimeFormatter.ISO_DATE;
+
         private final WashingReportExcelService reportService;
         private final WashingPeriodReportExcelService periodReportService;
-        private final WashingGroupedReportExcelService groupedReportService;
         private final UserRepository userRepository;
 
         @GetMapping("/daily/export")
@@ -59,91 +59,85 @@ public class WashingReportExcelSuperAdminController {
                                 date, currentUser);
 
                 return excelResponse(
-                                excel, "Report-Washing-Daily-" + date + ".xlsx");
+                                excel,
+                                "Report-Washing-Daily-" + date.format(DATE_FORMAT) + ".xlsx");
         }
 
         @GetMapping("/weekly/export")
         public ResponseEntity<byte[]> exportWeeklyWashingExcel(
                         @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
+
                         @RequestParam(defaultValue = "ALL") String reportType,
+
                         @RequestParam(defaultValue = "ALL") String buyer,
+
                         @RequestParam(defaultValue = "ALL") String style,
 
                         @AuthenticationPrincipal User currentUser) throws IOException {
 
                 validateWashingExportAccess();
-                String normalizedType = validateReportType(reportType);
-                byte[] excel;
 
-                if ("ALL".equals(normalizedType)) {
-                        excel = periodReportService.exportWeeklyWashingExcel(
-                                        date,
-                                        normalizedType,
-                                        buyer,
-                                        style,
-                                        currentUser);
-                } else {
-                        excel = groupedReportService.exportWeeklyWashingExcel(
-                                        date,
-                                        normalizedType,
-                                        buyer,
-                                        style,
-                                        currentUser);
-                }
+                String normalizedType = validateReportType(reportType);
+                validateReportFilters(normalizedType, buyer, style);
+
+                byte[] excel = periodReportService.exportWeeklyWashingExcel(
+                                date,
+                                normalizedType,
+                                buyer,
+                                style,
+                                currentUser);
 
                 LocalDate weekStart = date.with(
                                 java.time.temporal.TemporalAdjusters.previousOrSame(
                                                 java.time.DayOfWeek.FRIDAY));
 
                 String filename = "Report-Washing-Weekly-"
-                                + normalizedType + "-"
-                                + weekStart.format(DateTimeFormatter.ISO_DATE)
+                                + normalizedType
+                                + "-"
+                                + weekStart.format(DATE_FORMAT)
                                 + ".xlsx";
 
                 return excelResponse(excel, filename);
         }
 
         @GetMapping("/monthly/export")
-        public ResponseEntity<byte[]> exportMonthlyWashingExcel(@RequestParam int month, @RequestParam int year,
+        public ResponseEntity<byte[]> exportMonthlyWashingExcel(
+                        @RequestParam int month,
+                        @RequestParam int year,
+
                         @RequestParam(defaultValue = "ALL") String reportType,
+
                         @RequestParam(defaultValue = "ALL") String buyer,
+
                         @RequestParam(defaultValue = "ALL") String style,
+
                         @AuthenticationPrincipal User currentUser) throws IOException {
 
                 validateWashingExportAccess();
 
                 String normalizedType = validateReportType(reportType);
+                validateReportFilters(normalizedType, buyer, style);
 
                 final YearMonth period;
 
                 try {
                         period = YearMonth.of(year, month);
                 } catch (java.time.DateTimeException ex) {
-                        throw new BadRequestException("Bulan atau tahun laporan tidak valid.");
+                        throw new BadRequestException(
+                                        "Bulan atau tahun laporan tidak valid.");
                 }
 
-                byte[] excel;
-
-                if ("ALL".equals(normalizedType)) {
-                        excel = periodReportService.exportMonthlyWashingExcel(
-                                        month,
-                                        year,
-                                        normalizedType,
-                                        buyer,
-                                        style,
-                                        currentUser);
-                } else {
-                        excel = groupedReportService.exportMonthlyWashingExcel(
-                                        month,
-                                        year,
-                                        normalizedType,
-                                        buyer,
-                                        style,
-                                        currentUser);
-                }
+                byte[] excel = periodReportService.exportMonthlyWashingExcel(
+                                month,
+                                year,
+                                normalizedType,
+                                buyer,
+                                style,
+                                currentUser);
 
                 String filename = "Report-Washing-Monthly-"
-                                + normalizedType + "-"
+                                + normalizedType
+                                + "-"
                                 + period.format(MONTH_FORMAT)
                                 + ".xlsx";
 
@@ -154,12 +148,38 @@ public class WashingReportExcelSuperAdminController {
                 String normalized = reportType == null || reportType.isBlank()
                                 ? "ALL"
                                 : reportType.trim().toUpperCase(Locale.ROOT);
+
                 if (!List.of("ALL", "BUYERWISE", "STYLEWISE")
                                 .contains(normalized)) {
+
                         throw new BadRequestException("Report type harus ALL, BUYERWISE, atau STYLEWISE.");
                 }
 
                 return normalized;
+        }
+
+        private void validateReportFilters(
+                        String reportType,
+                        String buyer,
+                        String style) {
+
+                boolean buyerIsAll = buyer == null
+                                || buyer.isBlank()
+                                || "ALL".equalsIgnoreCase(buyer.trim());
+
+                boolean styleIsAll = style == null
+                                || style.isBlank()
+                                || "ALL".equalsIgnoreCase(style.trim());
+
+                if ("BUYERWISE".equals(reportType) && buyerIsAll) {
+                        throw new BadRequestException(
+                                        "Untuk laporan BUYERWISE, pilih satu buyer terlebih dahulu.");
+                }
+
+                if ("STYLEWISE".equals(reportType) && styleIsAll) {
+                        throw new BadRequestException(
+                                        "Untuk laporan STYLEWISE, pilih satu style terlebih dahulu.");
+                }
         }
 
         private void validateWashingExportAccess() {
@@ -173,24 +193,27 @@ public class WashingReportExcelSuperAdminController {
                                 || authentication.getName() == null
                                 || authentication.getName().isBlank()
                                 || "anonymousUser".equals(authentication.getName())) {
-                        throw new UnauthorizedException("Anda harus login untuk mengakses export Washing.");
+
+                        throw new UnauthorizedException(
+                                        "Anda harus login untuk mengakses export Washing.");
                 }
 
                 User user = userRepository
                                 .findByUsername(authentication.getName())
-                                .orElseThrow(() -> new UnauthorizedException("User yang login tidak ditemukan."));
+                                .orElseThrow(() -> new UnauthorizedException(
+                                                "User yang login tidak ditemukan."));
 
-                if (user.getRole() != null
-                                && "SUPER_ADMIN".equals(user.getRole().name())) {
-                        return;
+                if (user.getRole() == null
+                                || !"SUPER_ADMIN".equals(user.getRole().name())) {
+
+                        throw new UnauthorizedException(
+                                        "Hanya Super Admin yang mempunyai akses untuk export laporan Washing.");
                 }
-
-                throw new UnauthorizedException(
-                                "Hanya Super Admin yang mempunyai akses " + "untuk export laporan Washing.");
         }
 
         private ResponseEntity<byte[]> excelResponse(
-                        byte[] excel, String filename) {
+                        byte[] excel,
+                        String filename) {
 
                 return ResponseEntity.ok()
                                 .header(
