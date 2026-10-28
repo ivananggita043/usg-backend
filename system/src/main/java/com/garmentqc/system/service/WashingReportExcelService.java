@@ -222,6 +222,8 @@ public class WashingReportExcelService {
                                 sheet.setColumnWidth(c, 14 * 256);
                         }
 
+                        sheet.setColumnWidth(layout.grandTotalPct(), 14 * 256);
+
                         sheet.createFreezePane(1, 5);
 
                         sheet.getPrintSetup().setLandscape(true);
@@ -307,6 +309,10 @@ public class WashingReportExcelService {
                 mergeTotalColumn(
                                 sheet, firstRow, lastRow,
                                 layout.grandTotal(), "TOTAL", styles);
+
+                mergeTotalColumn(
+                                sheet, firstRow, lastRow,
+                                layout.grandTotalPct(), "% DEFECT", styles);
         }
 
         private void mergeTotalColumn(Sheet sheet, int firstRow, int lastRow, int column, String label, Styles styles) {
@@ -362,20 +368,23 @@ public class WashingReportExcelService {
                 return rowIndex;
         }
 
-        private int writeDefectSection(Sheet sheet, int rowIndex, String title, List<InspectionData> bulkColumns,
-                        List<InspectionData> repairColumns, Layout layout, Styles styles,
+        private int writeDefectSection(
+                        Sheet sheet,
+                        int rowIndex,
+                        String title,
+                        List<InspectionData> bulkColumns,
+                        List<InspectionData> repairColumns,
+                        Layout layout,
+                        Styles styles,
                         Function<InspectionData, Map<DefectKey, Integer>> defectGetter) {
+
                 createMergedRow(
                                 sheet, rowIndex++, LABEL_COLUMN, layout.lastColumn(),
                                 title, styles.section);
 
                 Comparator<DefectKey> comparator = Comparator
-                                .comparing(
-                                                DefectKey::area,
-                                                String.CASE_INSENSITIVE_ORDER)
-                                .thenComparing(
-                                                DefectKey::name,
-                                                String.CASE_INSENSITIVE_ORDER);
+                                .comparing(DefectKey::area, String.CASE_INSENSITIVE_ORDER)
+                                .thenComparing(DefectKey::name, String.CASE_INSENSITIVE_ORDER);
 
                 Set<DefectKey> keys = new TreeSet<>(comparator);
 
@@ -389,11 +398,12 @@ public class WashingReportExcelService {
 
                 long bulkInspect = totalInspect(bulkColumns);
                 long repairInspect = totalInspect(repairColumns);
-                String currentArea = null;
-                for (DefectKey key : keys) {
-                        if (!key.area().isBlank()
-                                        && !key.area().equals(currentArea)) {
+                long grandTotalInspect = bulkInspect + repairInspect;
 
+                String currentArea = null;
+
+                for (DefectKey key : keys) {
+                        if (!key.area().isBlank() && !key.area().equals(currentArea)) {
                                 currentArea = key.area();
 
                                 Row areaRow = sheet.createRow(rowIndex++);
@@ -408,6 +418,7 @@ public class WashingReportExcelService {
                         }
 
                         Row row = sheet.createRow(rowIndex++);
+
                         setCell(
                                         row, LABEL_COLUMN,
                                         "    " + key.name(), styles.body);
@@ -416,55 +427,79 @@ public class WashingReportExcelService {
                         int repairTotal = 0;
 
                         for (int i = 0; i < bulkColumns.size(); i++) {
-                                int quantity = defectGetter.apply(
-                                                bulkColumns.get(i)).getOrDefault(key, 0);
+                                int quantity = defectGetter.apply(bulkColumns.get(i))
+                                                .getOrDefault(key, 0);
 
                                 bulkTotal += quantity;
+
                                 setCell(
                                                 row, layout.bulkStart() + i,
                                                 quantity, styles.number);
                         }
 
                         for (int i = 0; i < repairColumns.size(); i++) {
-                                int quantity = defectGetter.apply(
-                                                repairColumns.get(i)).getOrDefault(key, 0);
+                                int quantity = defectGetter.apply(repairColumns.get(i))
+                                                .getOrDefault(key, 0);
+
                                 repairTotal += quantity;
+
                                 setCell(
                                                 row, layout.repairStart() + i,
                                                 quantity, styles.number);
                         }
+
+                        int grandTotalDefect = bulkTotal + repairTotal;
+
                         setCell(row, layout.bulkTotal(), bulkTotal, styles.total);
                         setCell(
                                         row, layout.bulkPct(),
                                         percentage(bulkTotal, bulkInspect),
                                         styles.percentTotal);
+
                         setCell(row, layout.repairTotal(), repairTotal, styles.total);
                         setCell(
                                         row, layout.repairPct(),
                                         percentage(repairTotal, repairInspect),
                                         styles.percentTotal);
+
                         setCell(
                                         row, layout.grandTotal(),
-                                        bulkTotal + repairTotal, styles.total);
+                                        grandTotalDefect, styles.total);
+
+                        setCell(
+                                        row, layout.grandTotalPct(),
+                                        percentage(grandTotalDefect, grandTotalInspect),
+                                        styles.percentTotal);
                 }
+
                 return rowIndex;
         }
 
-        private int writeSummaryRow(Sheet sheet, int rowIndex, String label, List<InspectionData> bulkColumns,
-                        List<InspectionData> repairColumns, Layout layout, ToIntFunction<InspectionData> getter,
+        private int writeSummaryRow(
+                        Sheet sheet,
+                        int rowIndex,
+                        String label,
+                        List<InspectionData> bulkColumns,
+                        List<InspectionData> repairColumns,
+                        Layout layout,
+                        ToIntFunction<InspectionData> getter,
                         Styles styles) {
+
                 Row row = sheet.createRow(rowIndex++);
 
                 setCell(row, LABEL_COLUMN, label, styles.summaryLabel);
 
                 int bulkGrandTotal = 0;
                 int repairGrandTotal = 0;
+
                 long bulkInspect = totalInspect(bulkColumns);
                 long repairInspect = totalInspect(repairColumns);
+                long grandTotalInspect = bulkInspect + repairInspect;
 
                 for (int i = 0; i < bulkColumns.size(); i++) {
                         int value = getter.applyAsInt(bulkColumns.get(i));
                         bulkGrandTotal += value;
+
                         setCell(
                                         row, layout.bulkStart() + i,
                                         value, styles.summaryValue);
@@ -473,6 +508,7 @@ public class WashingReportExcelService {
                 for (int i = 0; i < repairColumns.size(); i++) {
                         int value = getter.applyAsInt(repairColumns.get(i));
                         repairGrandTotal += value;
+
                         setCell(
                                         row, layout.repairStart() + i,
                                         value, styles.summaryValue);
@@ -496,17 +532,29 @@ public class WashingReportExcelService {
                                 percentage(repairGrandTotal, repairInspect),
                                 styles.percentTotal);
 
+                int grandTotal = bulkGrandTotal + repairGrandTotal;
+
                 setCell(
                                 row, layout.grandTotal(),
-                                bulkGrandTotal + repairGrandTotal, styles.total);
+                                grandTotal, styles.total);
+
+           setCell(row, layout.grandTotalPct(), "", styles.total);
 
                 return rowIndex;
         }
 
-        private int writePercentageRow(Sheet sheet, int rowIndex, String label, List<InspectionData> bulkColumns,
-                        List<InspectionData> repairColumns, Layout layout, ToIntFunction<InspectionData> defectGetter,
+        private int writePercentageRow(
+                        Sheet sheet,
+                        int rowIndex,
+                        String label,
+                        List<InspectionData> bulkColumns,
+                        List<InspectionData> repairColumns,
+                        Layout layout,
+                        ToIntFunction<InspectionData> defectGetter,
                         Styles styles) {
+
                 Row row = sheet.createRow(rowIndex++);
+
                 setCell(row, LABEL_COLUMN, label, styles.summaryLabel);
 
                 long bulkInspect = 0;
@@ -518,6 +566,7 @@ public class WashingReportExcelService {
                         InspectionData data = bulkColumns.get(i);
                         int inspect = data.getInspectQuantity();
                         int defect = defectGetter.applyAsInt(data);
+
                         bulkInspect += inspect;
                         bulkDefect += defect;
 
@@ -538,22 +587,30 @@ public class WashingReportExcelService {
                                         row, layout.repairStart() + i,
                                         percentage(defect, inspect), styles.percent);
                 }
+
                 setCell(
                                 row, layout.bulkTotal(),
                                 percentage(bulkDefect, bulkInspect),
                                 styles.percentTotal);
+
                 setCell(row, layout.bulkPct(), "", styles.total);
+
                 setCell(
                                 row, layout.repairTotal(),
                                 percentage(repairDefect, repairInspect),
                                 styles.percentTotal);
+
                 setCell(row, layout.repairPct(), "", styles.total);
+
                 setCell(
                                 row, layout.grandTotal(),
                                 percentage(
                                                 bulkDefect + repairDefect,
                                                 bulkInspect + repairInspect),
                                 styles.percentTotal);
+
+                setCell(row, layout.grandTotalPct(), "", styles.total);
+
                 return rowIndex;
         }
 
@@ -638,6 +695,7 @@ public class WashingReportExcelService {
         }
 
         private record Layout(int bulkCount, int repairCount) {
+
                 int bulkStart() {
                         return 1;
                 }
@@ -666,8 +724,12 @@ public class WashingReportExcelService {
                         return repairPct() + 1;
                 }
 
+                int grandTotalPct() {
+                        return grandTotal() + 1;
+                }
+
                 int lastColumn() {
-                        return grandTotal();
+                        return grandTotalPct();
                 }
         }
 
@@ -888,6 +950,8 @@ public class WashingReportExcelService {
                 private static final Color BEIGE = new Color(245, 240, 230);
                 private static final Color GREEN_TOTAL = new Color(220, 232, 223);
                 private static final Color YELLOW_LIGHT = new Color(255, 249, 196);
+                private static final Color TITLE_PASTEL = new Color(168, 200, 178);
+                private static final Color SUBTITLE_PASTEL = new Color(198, 215, 202);
 
                 final CellStyle title;
                 final CellStyle subtitle;
@@ -906,13 +970,13 @@ public class WashingReportExcelService {
 
                 Styles(Workbook workbook) {
                         title = style(
-                                        workbook, GREEN_HEADER,
-                                        IndexedColors.WHITE.getIndex(),
+                                        workbook, TITLE_PASTEL,
+                                        IndexedColors.DARK_BLUE.getIndex(),
                                         14, true, HorizontalAlignment.CENTER);
 
                         subtitle = style(
-                                        workbook, GREEN_HEADER,
-                                        IndexedColors.WHITE.getIndex(),
+                                        workbook, SUBTITLE_PASTEL,
+                                        IndexedColors.DARK_BLUE.getIndex(),
                                         9, true, HorizontalAlignment.CENTER);
 
                         period = style(
@@ -998,10 +1062,10 @@ public class WashingReportExcelService {
                         style.setBorderLeft(BorderStyle.THIN);
                         style.setBorderRight(BorderStyle.THIN);
 
-                        style.setTopBorderColor(IndexedColors.GREY_25_PERCENT.getIndex());
-                        style.setBottomBorderColor(IndexedColors.GREY_25_PERCENT.getIndex());
-                        style.setLeftBorderColor(IndexedColors.GREY_25_PERCENT.getIndex());
-                        style.setRightBorderColor(IndexedColors.GREY_25_PERCENT.getIndex());
+                        style.setTopBorderColor(IndexedColors.GREY_50_PERCENT.getIndex());
+                        style.setBottomBorderColor(IndexedColors.GREY_50_PERCENT.getIndex());
+                        style.setLeftBorderColor(IndexedColors.GREY_50_PERCENT.getIndex());
+                        style.setRightBorderColor(IndexedColors.GREY_50_PERCENT.getIndex());
 
                         XSSFFont font = (XSSFFont) workbook.createFont();
 
