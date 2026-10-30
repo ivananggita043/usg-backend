@@ -919,16 +919,13 @@ public class FinishingPeriodReportExcelService {
         private static class Styles {
 
                 private static final Color GREEN_HEADER = new Color(96, 125, 107);
-
                 private static final Color GREEN_LIGHT = new Color(238, 243, 238);
-
                 private static final Color BLUE_HEADER = new Color(220, 230, 239);
-
                 private static final Color BEIGE = new Color(245, 240, 230);
-
                 private static final Color GREEN_TOTAL = new Color(220, 232, 223);
-
                 private static final Color YELLOW_LIGHT = new Color(255, 249, 196);
+                private static final Color TITLE_PASTEL = new Color(168, 200, 178);
+                private static final Color SUBTITLE_PASTEL = new Color(198, 215, 202);
 
                 final CellStyle title;
                 final CellStyle subtitle;
@@ -949,16 +946,16 @@ public class FinishingPeriodReportExcelService {
                 Styles(Workbook workbook) {
                         title = style(
                                         workbook,
-                                        GREEN_HEADER,
-                                        IndexedColors.WHITE.getIndex(),
+                                        TITLE_PASTEL,
+                                        IndexedColors.DARK_BLUE.getIndex(),
                                         14,
                                         true,
                                         HorizontalAlignment.CENTER);
 
                         subtitle = style(
                                         workbook,
-                                        GREEN_HEADER,
-                                        IndexedColors.WHITE.getIndex(),
+                                        SUBTITLE_PASTEL,
+                                        IndexedColors.DARK_BLUE.getIndex(),
                                         9,
                                         true,
                                         HorizontalAlignment.CENTER);
@@ -1108,17 +1105,10 @@ public class FinishingPeriodReportExcelService {
                         style.setBorderLeft(BorderStyle.THIN);
                         style.setBorderRight(BorderStyle.THIN);
 
-                        style.setTopBorderColor(
-                                        IndexedColors.GREY_25_PERCENT.getIndex());
-
-                        style.setBottomBorderColor(
-                                        IndexedColors.GREY_25_PERCENT.getIndex());
-
-                        style.setLeftBorderColor(
-                                        IndexedColors.GREY_25_PERCENT.getIndex());
-
-                        style.setRightBorderColor(
-                                        IndexedColors.GREY_25_PERCENT.getIndex());
+                        style.setTopBorderColor(IndexedColors.GREY_50_PERCENT.getIndex());
+                        style.setBottomBorderColor(IndexedColors.GREY_50_PERCENT.getIndex());
+                        style.setLeftBorderColor(IndexedColors.GREY_50_PERCENT.getIndex());
+                        style.setRightBorderColor(IndexedColors.GREY_50_PERCENT.getIndex());
 
                         XSSFFont font = (XSSFFont) workbook.createFont();
 

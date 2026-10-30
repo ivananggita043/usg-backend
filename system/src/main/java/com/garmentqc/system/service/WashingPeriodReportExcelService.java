@@ -260,7 +260,7 @@ public class WashingPeriodReportExcelService {
             }
 
             topHeader.getCell(LABEL_COLUMN).setCellValue("DEFECT");
-            topHeader.getCell(1).setCellValue("DAILY DEFECT");
+            topHeader.getCell(1).setCellValue("DATE");
             topHeader.getCell(totalColumn).setCellValue("TOTAL");
             topHeader.getCell(percentColumn).setCellValue("% DEFECT");
 
@@ -349,7 +349,7 @@ public class WashingPeriodReportExcelService {
             rowIndex = writeSummaryRow(
                     sheet, rowIndex, "TOTAL DEFECT",
                     totalDefectByDay, totalColumn, totalDefect,
-                    percentColumn, percentage(totalDefect, totalInspect),
+                    percentColumn, null,
                     styles);
 
             rowIndex = writePercentageRow(
@@ -380,9 +380,9 @@ public class WashingPeriodReportExcelService {
                     percentColumn, null, styles);
 
             // rowIndex = writeSummaryRow(
-            //         sheet, rowIndex, "QTY TRANSFER",
-            //         transferByDay, totalColumn, sum(transferByDay),
-            //         percentColumn, null, styles);
+            // sheet, rowIndex, "QTY TRANSFER",
+            // transferByDay, totalColumn, sum(transferByDay),
+            // percentColumn, null, styles);
 
             rowIndex += 2;
         }
@@ -514,9 +514,6 @@ public class WashingPeriodReportExcelService {
 
         Map<String, List<Inspection>> groups = new LinkedHashMap<>();
 
-        // Hanya satu grup data per sheet.
-        // Data sudah difilter berdasarkan buyer/style dan kemudian
-        // diakumulasikan per tanggal.
         String key;
 
         if ("BUYERWISE".equals(reportType)) {
