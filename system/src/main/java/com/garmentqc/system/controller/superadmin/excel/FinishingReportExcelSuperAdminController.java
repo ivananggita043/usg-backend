@@ -18,6 +18,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.garmentqc.system.enums.ReportGroupingType;
 import com.garmentqc.system.exception.BadRequestException;
 import com.garmentqc.system.exception.UnauthorizedException;
 import com.garmentqc.system.model.User;
@@ -47,7 +48,8 @@ public class FinishingReportExcelSuperAdminController {
                 User currentUser = requireSuperAdmin(authentication);
 
                 byte[] file = dailyReportService.exportDailyFinishingExcel(
-                                date, currentUser);
+                                date,
+                                currentUser);
 
                 return excelResponse(
                                 file,
@@ -58,7 +60,7 @@ public class FinishingReportExcelSuperAdminController {
         public ResponseEntity<byte[]> exportWeekly(
                         @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
 
-                        @RequestParam(defaultValue = "ALL") String reportType,
+                        @RequestParam(defaultValue = "DATEWISE") ReportGroupingType groupingType,
 
                         @RequestParam(defaultValue = "ALL") String buyer,
 
@@ -68,12 +70,11 @@ public class FinishingReportExcelSuperAdminController {
 
                 User currentUser = requireSuperAdmin(authentication);
 
-                String normalizedType = validateReportType(reportType);
-                validateReportFilters(normalizedType, buyer, style);
+                validateReportFilters(groupingType, buyer, style);
 
                 byte[] file = periodReportService.exportWeeklyFinishingExcel(
                                 date,
-                                normalizedType,
+                                groupingType,
                                 buyer,
                                 style,
                                 currentUser);
@@ -83,7 +84,7 @@ public class FinishingReportExcelSuperAdminController {
                                                 java.time.DayOfWeek.FRIDAY));
 
                 String filename = "finishing-weekly-"
-                                + normalizedType.toLowerCase(Locale.ROOT)
+                                + groupingType.name().toLowerCase(Locale.ROOT)
                                 + "-"
                                 + weekStart.format(FILE_DATE)
                                 + ".xlsx";
@@ -96,7 +97,7 @@ public class FinishingReportExcelSuperAdminController {
                         @RequestParam int month,
                         @RequestParam int year,
 
-                        @RequestParam(defaultValue = "ALL") String reportType,
+                        @RequestParam(defaultValue = "DATEWISE") ReportGroupingType groupingType,
 
                         @RequestParam(defaultValue = "ALL") String buyer,
 
@@ -106,8 +107,7 @@ public class FinishingReportExcelSuperAdminController {
 
                 User currentUser = requireSuperAdmin(authentication);
 
-                String normalizedType = validateReportType(reportType);
-                validateReportFilters(normalizedType, buyer, style);
+                validateReportFilters(groupingType, buyer, style);
 
                 YearMonth period;
 
@@ -121,13 +121,13 @@ public class FinishingReportExcelSuperAdminController {
                 byte[] file = periodReportService.exportMonthlyFinishingExcel(
                                 month,
                                 year,
-                                normalizedType,
+                                groupingType,
                                 buyer,
                                 style,
                                 currentUser);
 
                 String filename = "finishing-monthly-"
-                                + normalizedType.toLowerCase(Locale.ROOT)
+                                + groupingType.name().toLowerCase(Locale.ROOT)
                                 + "-"
                                 + period.format(FILE_MONTH)
                                 + ".xlsx";
@@ -135,26 +135,23 @@ public class FinishingReportExcelSuperAdminController {
                 return excelResponse(file, filename);
         }
 
-        private String validateReportType(String reportType) {
-                String normalized = reportType == null || reportType.isBlank()
-                                ? "ALL"
-                                : reportType.trim().toUpperCase(Locale.ROOT);
-
-                if (!normalized.equals("ALL")
-                                && !normalized.equals("BUYERWISE")
-                                && !normalized.equals("STYLEWISE")) {
-
-                        throw new BadRequestException(
-                                        "reportType harus ALL, BUYERWISE, atau STYLEWISE.");
-                }
-
-                return normalized;
-        }
-
         private void validateReportFilters(
-                        String reportType,
+                        ReportGroupingType groupingType,
                         String buyer,
                         String style) {
+
+                if (groupingType == null) {
+                        throw new BadRequestException(
+                                        "Grouping laporan wajib dipilih.");
+                }
+
+                if (groupingType != ReportGroupingType.DATEWISE
+                                && groupingType != ReportGroupingType.BUYERWISE
+                                && groupingType != ReportGroupingType.STYLEWISE) {
+
+                        throw new BadRequestException(
+                                        "Grouping Finishing hanya mendukung DATEWISE, BUYERWISE, dan STYLEWISE.");
+                }
 
                 boolean buyerIsAll = buyer == null
                                 || buyer.isBlank()
@@ -164,18 +161,19 @@ public class FinishingReportExcelSuperAdminController {
                                 || style.isBlank()
                                 || style.trim().equalsIgnoreCase("ALL");
 
-                if ("BUYERWISE".equals(reportType) && buyerIsAll) {
+                if (groupingType == ReportGroupingType.BUYERWISE && buyerIsAll) {
                         throw new BadRequestException(
                                         "Untuk laporan BUYERWISE, pilih satu buyer terlebih dahulu.");
                 }
 
-                if ("STYLEWISE".equals(reportType) && styleIsAll) {
+                if (groupingType == ReportGroupingType.STYLEWISE && styleIsAll) {
                         throw new BadRequestException(
                                         "Untuk laporan STYLEWISE, pilih satu style terlebih dahulu.");
                 }
         }
 
         private User requireSuperAdmin(Authentication authentication) {
+
                 if (authentication == null || !authentication.isAuthenticated()) {
                         throw new UnauthorizedException(
                                         "Autentikasi diperlukan.");

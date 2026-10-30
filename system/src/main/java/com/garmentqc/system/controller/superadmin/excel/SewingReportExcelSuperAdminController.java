@@ -5,7 +5,6 @@ import java.time.LocalDate;
 import java.time.YearMonth;
 import java.time.temporal.TemporalAdjusters;
 import java.time.DayOfWeek;
-import java.util.Locale;
 
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpHeaders;
@@ -18,6 +17,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.garmentqc.system.enums.ReportGroupingType;
 import com.garmentqc.system.exception.BadRequestException;
 import com.garmentqc.system.model.User;
 import com.garmentqc.system.service.SewingPeriodReportExcelService;
@@ -53,16 +53,11 @@ public class SewingReportExcelSuperAdminController {
                         @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
 
                         @RequestParam(defaultValue = "ALL") String buyer,
-
                         @RequestParam(defaultValue = "ALL") String style,
-
                         @RequestParam(defaultValue = "ALL") String line,
-
-                        @RequestParam(defaultValue = "ALL") String reportType,
+                        @RequestParam(defaultValue = "LINEWISE") ReportGroupingType groupingType,
 
                         @AuthenticationPrincipal User currentUser) throws IOException {
-
-                String normalizedReportType = normalizeReportType(reportType);
 
                 LocalDate startDate = date.with(
                                 TemporalAdjusters.previousOrSame(DayOfWeek.FRIDAY));
@@ -73,12 +68,12 @@ public class SewingReportExcelSuperAdminController {
                                 buyer,
                                 style,
                                 line,
-                                normalizedReportType,
+                                groupingType,
                                 currentUser);
 
                 return buildExcelResponse(
                                 excel,
-                                "Report-Sewing-" + normalizedReportType
+                                "Report-Sewing-" + groupingType
                                                 + "-Weekly-" + startDate + "-to-" + endDate + ".xlsx");
         }
 
@@ -88,12 +83,9 @@ public class SewingReportExcelSuperAdminController {
                         @RequestParam int year,
 
                         @RequestParam(defaultValue = "ALL") String buyer,
-
                         @RequestParam(defaultValue = "ALL") String style,
-
                         @RequestParam(defaultValue = "ALL") String line,
-
-                        @RequestParam(defaultValue = "LINEWISE") String reportType,
+                        @RequestParam(defaultValue = "DATEWISE") ReportGroupingType groupingType,
 
                         @AuthenticationPrincipal User currentUser) throws IOException {
 
@@ -106,9 +98,8 @@ public class SewingReportExcelSuperAdminController {
                                         "Bulan atau tahun laporan tidak valid.");
                 }
 
-                String normalizedReportType = normalizeReportType(reportType);
-
                 LocalDate startDate = yearMonth.atDay(1);
+
                 LocalDate endDate = yearMonth.atEndOfMonth();
 
                 byte[] excel = periodExcelService.exportMonthlySewingExcel(
@@ -117,35 +108,13 @@ public class SewingReportExcelSuperAdminController {
                                 buyer,
                                 style,
                                 line,
-                                normalizedReportType,
+                                groupingType,
                                 currentUser);
 
                 return buildExcelResponse(
                                 excel,
-                                "Report-Sewing-" + normalizedReportType
-                                                + "-Monthly-" + startDate + "-to-" + endDate + ".xlsx");
-        }
+                                "Report-Sewing-" + groupingType + "-Monthly-" + startDate + "-to-" + endDate + ".xlsx");
 
-        private String normalizeReportType(String reportType) {
-                if (reportType == null || reportType.isBlank()) {
-                        return "LINEWISE";
-                }
-
-                String normalized = reportType.trim().toUpperCase(Locale.ROOT);
-
-                if (normalized.equals("ALL")) {
-                        normalized = "LINEWISE";
-                }
-
-                if (!normalized.equals("LINEWISE")
-                                && !normalized.equals("BUYERWISE")
-                                && !normalized.equals("STYLEWISE")
-                                && !normalized.equals("DATEWISE")) {
-                        throw new BadRequestException(
-                                        "reportType harus LINEWISE, BUYERWISE, STYLEWISE, atau DATEWISE.");
-                }
-
-                return normalized;
         }
 
         private ResponseEntity<byte[]> buildExcelResponse(

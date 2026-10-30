@@ -49,8 +49,10 @@ public class PackingReportExcelService {
             "HANGER",
             "ACCESSORIES");
 
+    // Header sekarang 3 baris: HEADER_ROW (DEFECT), +1 (nama defect), +2 (QTY / %)
     private static final int HEADER_ROW = 5;
-    private static final int FIRST_DATA_ROW = 6;
+    private static final int FIRST_DATA_ROW = 8;
+
     private final InspectionRepository inspectionRepository;
     private final InspectionReportService inspectionReportService;
 
@@ -194,12 +196,13 @@ public class PackingReportExcelService {
             sheet.setColumnWidth(7, 13 * 256);
 
             for (int c = defectStartCol; c < notesCol; c++) {
-                sheet.setColumnWidth(c, 12 * 256);
+                sheet.setColumnWidth(c, 9 * 256);
             }
 
             sheet.setColumnWidth(notesCol, 30 * 256);
 
-            sheet.createFreezePane(8, 0);
+            // Freeze kolom fixed (A-H) dan semua baris judul + header
+            sheet.createFreezePane(8, FIRST_DATA_ROW);
 
             sheet.getPrintSetup().setLandscape(true);
             sheet.getPrintSetup().setPaperSize(PrintSetup.A4_PAPERSIZE);
@@ -219,24 +222,50 @@ public class PackingReportExcelService {
     }
 
     private void createHeaders(Sheet sheet, Styles styles, int defectStartCol, int notesCol) {
-        Row header = sheet.createRow(HEADER_ROW);
+        Row row1 = sheet.createRow(HEADER_ROW); // grup "DEFECT"
+        Row row2 = sheet.createRow(HEADER_ROW + 1); // nama defect
+        Row row3 = sheet.createRow(HEADER_ROW + 2); // QTY / %
+
+        row1.setHeightInPoints(22);
+        row2.setHeightInPoints(34);
+        row3.setHeightInPoints(20);
+
         String[] fixedHeaders = {
                 "NO", "BUYER", "STYLE", "COLOR", "QTY INSPECT", "QTY GOOD", "QTY REJECT", "% QTY REJECT"
         };
 
+        // Kolom fixed: merge vertikal 3 baris
         for (int c = 0; c < fixedHeaders.length; c++) {
-            setCell(header, c, fixedHeaders[c], styles.header);
+            setCell(row1, c, fixedHeaders[c], styles.header);
+            setCell(row2, c, "", styles.header);
+            setCell(row3, c, "", styles.header);
+            sheet.addMergedRegion(new CellRangeAddress(HEADER_ROW, HEADER_ROW + 2, c, c));
         }
 
+        // Grup "DEFECT" di atas semua kolom defect
+        int defectEndCol = notesCol - 1;
+        for (int c = defectStartCol; c <= defectEndCol; c++) {
+            setCell(row1, c, c == defectStartCol ? "DEFECT" : "", styles.header);
+        }
+        sheet.addMergedRegion(new CellRangeAddress(HEADER_ROW, HEADER_ROW, defectStartCol, defectEndCol));
+
+        // Nama defect (merge 2 kolom) + sub-header QTY / %
         int col = defectStartCol;
-
         for (String defectName : DEFECT_TYPES) {
-            setCell(header, col++, defectName, styles.header);
-            setCell(header, col++, "% " + defectName, styles.header);
+            setCell(row2, col, defectName, styles.header);
+            setCell(row2, col + 1, "", styles.header);
+            sheet.addMergedRegion(new CellRangeAddress(HEADER_ROW + 1, HEADER_ROW + 1, col, col + 1));
+
+            setCell(row3, col, "QTY", styles.header);
+            setCell(row3, col + 1, "%", styles.header);
+            col += 2;
         }
 
-        setCell(header, notesCol, "NOTES", styles.header);
-        header.setHeightInPoints(40);
+        // NOTES merge vertikal 3 baris
+        setCell(row1, notesCol, "NOTES", styles.header);
+        setCell(row2, notesCol, "", styles.header);
+        setCell(row3, notesCol, "", styles.header);
+        sheet.addMergedRegion(new CellRangeAddress(HEADER_ROW, HEADER_ROW + 2, notesCol, notesCol));
     }
 
     private Map<String, Integer> getDefects(Inspection inspection) {
@@ -331,6 +360,8 @@ public class PackingReportExcelService {
         private static final XSSFColor BLACK = rgb(0, 0, 0);
         private static final XSSFColor BORDER = rgb(191, 191, 191);
         private static final XSSFColor BORDER_LIGHT = rgb(235, 235, 235);
+        private static final XSSFColor TITLE_PASTEL = rgb(168, 200, 178);
+        private static final XSSFColor SUBTITLE_PASTEL = rgb(198, 215, 202);
 
         final CellStyle title;
         final CellStyle subtitle;
@@ -342,8 +373,8 @@ public class PackingReportExcelService {
         final CellStyle percentTotal;
 
         Styles(XSSFWorkbook workbook) {
-            title = createStyle(workbook, GREEN_DARK, WHITE, 16, true, BORDER_LIGHT);
-            subtitle = createStyle(workbook, GREEN_DARK, WHITE, 10, true, BORDER_LIGHT);
+            title = createStyle(workbook, TITLE_PASTEL, BLUE_TEXT, 16, true, BORDER_LIGHT);
+            subtitle = createStyle(workbook, SUBTITLE_PASTEL, BLUE_TEXT, 10, true, BORDER_LIGHT);
             date = createStyle(workbook, GREEN_PALE, BLUE_TEXT, 10, true, BORDER);
             header = createStyle(workbook, BLUE_HEADER, BLUE_TEXT, 9, true, BORDER);
             bodyNumber = createStyle(workbook, WHITE, BLACK, 10, false, BORDER);
