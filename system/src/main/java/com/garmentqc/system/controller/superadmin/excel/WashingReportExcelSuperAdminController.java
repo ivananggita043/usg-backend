@@ -5,8 +5,6 @@ import java.io.IOException;
 import java.time.LocalDate;
 import java.time.YearMonth;
 import java.time.format.DateTimeFormatter;
-import java.util.List;
-import java.util.Locale;
 
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpHeaders;
@@ -22,6 +20,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.garmentqc.system.enums.ReportGroupingType;
 import com.garmentqc.system.exception.BadRequestException;
 import com.garmentqc.system.exception.UnauthorizedException;
 import com.garmentqc.system.model.User;
@@ -67,7 +66,7 @@ public class WashingReportExcelSuperAdminController {
         public ResponseEntity<byte[]> exportWeeklyWashingExcel(
                         @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
 
-                        @RequestParam(defaultValue = "ALL") String reportType,
+                        @RequestParam(defaultValue = "DATEWISE") ReportGroupingType groupingType,
 
                         @RequestParam(defaultValue = "ALL") String buyer,
 
@@ -77,12 +76,11 @@ public class WashingReportExcelSuperAdminController {
 
                 validateWashingExportAccess();
 
-                String normalizedType = validateReportType(reportType);
-                validateReportFilters(normalizedType, buyer, style);
+                validateReportFilters(groupingType, buyer, style);
 
                 byte[] excel = periodReportService.exportWeeklyWashingExcel(
                                 date,
-                                normalizedType,
+                                groupingType,
                                 buyer,
                                 style,
                                 currentUser);
@@ -92,7 +90,7 @@ public class WashingReportExcelSuperAdminController {
                                                 java.time.DayOfWeek.FRIDAY));
 
                 String filename = "Report-Washing-Weekly-"
-                                + normalizedType
+                                + groupingType
                                 + "-"
                                 + weekStart.format(DATE_FORMAT)
                                 + ".xlsx";
@@ -105,7 +103,7 @@ public class WashingReportExcelSuperAdminController {
                         @RequestParam int month,
                         @RequestParam int year,
 
-                        @RequestParam(defaultValue = "ALL") String reportType,
+                        @RequestParam(defaultValue = "DATEWISE") ReportGroupingType groupingType,
 
                         @RequestParam(defaultValue = "ALL") String buyer,
 
@@ -115,8 +113,7 @@ public class WashingReportExcelSuperAdminController {
 
                 validateWashingExportAccess();
 
-                String normalizedType = validateReportType(reportType);
-                validateReportFilters(normalizedType, buyer, style);
+                validateReportFilters(groupingType, buyer, style);
 
                 final YearMonth period;
 
@@ -130,13 +127,13 @@ public class WashingReportExcelSuperAdminController {
                 byte[] excel = periodReportService.exportMonthlyWashingExcel(
                                 month,
                                 year,
-                                normalizedType,
+                                groupingType,
                                 buyer,
                                 style,
                                 currentUser);
 
                 String filename = "Report-Washing-Monthly-"
-                                + normalizedType
+                                + groupingType
                                 + "-"
                                 + period.format(MONTH_FORMAT)
                                 + ".xlsx";
@@ -144,24 +141,23 @@ public class WashingReportExcelSuperAdminController {
                 return excelResponse(excel, filename);
         }
 
-        private String validateReportType(String reportType) {
-                String normalized = reportType == null || reportType.isBlank()
-                                ? "ALL"
-                                : reportType.trim().toUpperCase(Locale.ROOT);
-
-                if (!List.of("ALL", "BUYERWISE", "STYLEWISE")
-                                .contains(normalized)) {
-
-                        throw new BadRequestException("Report type harus ALL, BUYERWISE, atau STYLEWISE.");
-                }
-
-                return normalized;
-        }
-
         private void validateReportFilters(
-                        String reportType,
+                        ReportGroupingType groupingType,
                         String buyer,
                         String style) {
+
+                if (groupingType == null) {
+                        throw new BadRequestException(
+                                        "Grouping laporan wajib dipilih.");
+                }
+
+                if (groupingType != ReportGroupingType.DATEWISE
+                                && groupingType != ReportGroupingType.BUYERWISE
+                                && groupingType != ReportGroupingType.STYLEWISE) {
+
+                        throw new BadRequestException(
+                                        "Grouping Washing hanya mendukung DATEWISE, BUYERWISE, dan STYLEWISE.");
+                }
 
                 boolean buyerIsAll = buyer == null
                                 || buyer.isBlank()
@@ -171,12 +167,12 @@ public class WashingReportExcelSuperAdminController {
                                 || style.isBlank()
                                 || "ALL".equalsIgnoreCase(style.trim());
 
-                if ("BUYERWISE".equals(reportType) && buyerIsAll) {
+                if (groupingType == ReportGroupingType.BUYERWISE && buyerIsAll) {
                         throw new BadRequestException(
                                         "Untuk laporan BUYERWISE, pilih satu buyer terlebih dahulu.");
                 }
 
-                if ("STYLEWISE".equals(reportType) && styleIsAll) {
+                if (groupingType == ReportGroupingType.STYLEWISE && styleIsAll) {
                         throw new BadRequestException(
                                         "Untuk laporan STYLEWISE, pilih satu style terlebih dahulu.");
                 }

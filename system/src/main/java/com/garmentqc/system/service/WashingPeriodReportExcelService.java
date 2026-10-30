@@ -41,6 +41,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.garmentqc.system.enums.DefectCategory;
+import com.garmentqc.system.enums.ReportGroupingType;
 import com.garmentqc.system.exception.BadRequestException;
 import com.garmentqc.system.exception.ResourceNotFoundException;
 import com.garmentqc.system.exception.UnauthorizedException;
@@ -71,7 +72,11 @@ public class WashingPeriodReportExcelService {
     private final InspectionReportService inspectionReportService;
     private final BuyerRepository buyerRepository;
 
-    public byte[] exportWeeklyWashingExcel(LocalDate date, String reportType, String buyer, String style,
+    public byte[] exportWeeklyWashingExcel(
+            LocalDate date,
+            ReportGroupingType groupingType,
+            String buyer,
+            String style,
             User currentUser) throws IOException {
 
         if (date == null) {
@@ -81,11 +86,17 @@ public class WashingPeriodReportExcelService {
         LocalDate start = date.with(TemporalAdjusters.previousOrSame(DayOfWeek.FRIDAY));
         LocalDate end = start.plusDays(6);
 
-        return exportPeriod(start, end, reportType, buyer, style, currentUser, "WEEKLY");
+        return exportPeriod(start, end, groupingType, buyer, style, currentUser, "WEEKLY");
     }
 
-    public byte[] exportMonthlyWashingExcel(int month, int year, String reportType, String buyer, String style,
+    public byte[] exportMonthlyWashingExcel(
+            int month,
+            int year,
+            ReportGroupingType groupingType,
+            String buyer,
+            String style,
             User currentUser) throws IOException {
+
         final YearMonth period;
 
         try {
@@ -97,30 +108,43 @@ public class WashingPeriodReportExcelService {
         return exportPeriod(
                 period.atDay(1),
                 period.atEndOfMonth(),
-                reportType,
+                groupingType,
                 buyer,
                 style,
                 currentUser,
                 "MONTHLY");
     }
 
-    private byte[] exportPeriod(LocalDate start, LocalDate end, String reportTypeValue, String buyerValue,
-            String styleValue, User currentUser, String periodType) throws IOException {
+    private byte[] exportPeriod(
+            LocalDate start,
+            LocalDate end,
+            ReportGroupingType groupingType,
+            String buyerValue,
+            String styleValue,
+            User currentUser,
+            String periodType) throws IOException {
+
         String section = inspectionReportService.resolveSectionForUser(currentUser, WASHING);
 
         if (section != null && !section.isBlank() && !WASHING.equalsIgnoreCase(section)) {
             throw new UnauthorizedException("Tidak memiliki akses laporan Washing.");
         }
 
-        String reportType = normalizeReportType(reportTypeValue);
+        ReportGroupingType grouping = normalizeGroupingType(groupingType);
         String buyerFilter = normalizeFilter(buyerValue);
         String styleFilter = normalizeFilter(styleValue);
 
-        if ("BUYERWISE".equals(reportType)) {
-            validateBuyerExists(buyerFilter);
+        validateBuyerExists(buyerFilter);
+        validateStyleExists(styleFilter, buyerFilter);
+
+        if (grouping == ReportGroupingType.BUYERWISE
+                && "ALL".equalsIgnoreCase(buyerFilter)) {
+            throw new BadRequestException(
+                    "Untuk laporan BUYERWISE, pilih satu buyer terlebih dahulu.");
         }
 
-        if ("STYLEWISE".equals(reportType) && "ALL".equalsIgnoreCase(styleFilter)) {
+        if (grouping == ReportGroupingType.STYLEWISE
+                && "ALL".equalsIgnoreCase(styleFilter)) {
             throw new BadRequestException(
                     "Untuk laporan STYLEWISE, pilih satu style terlebih dahulu.");
         }
@@ -153,17 +177,17 @@ public class WashingPeriodReportExcelService {
 
             createWashingSheet(
                     workbook, styles, BULK, BULK, start, end,
-                    dates, inspections, reportType, buyerFilter,
+                    dates, inspections, grouping, buyerFilter,
                     styleFilter, periodType);
 
             createWashingSheet(
                     workbook, styles, REPAIR, REPAIR, start, end,
-                    dates, inspections, reportType, buyerFilter,
+                    dates, inspections, grouping, buyerFilter,
                     styleFilter, periodType);
 
             createWashingSheet(
                     workbook, styles, GRAND_TOTAL, null, start, end,
-                    dates, inspections, reportType, buyerFilter,
+                    dates, inspections, grouping, buyerFilter,
                     styleFilter, periodType);
 
             workbook.write(output);
@@ -172,7 +196,8 @@ public class WashingPeriodReportExcelService {
     }
 
     private void createWashingSheet(Workbook workbook, Styles styles, String sheetName, String washingType,
-            LocalDate start, LocalDate end, List<LocalDate> dates, List<Inspection> allInspections, String reportType,
+            LocalDate start, LocalDate end, List<LocalDate> dates, List<Inspection> allInspections,
+            ReportGroupingType grouping,
             String buyerFilter, String styleFilter, String periodType) {
         Sheet sheet = workbook.createSheet(sheetName);
         List<Inspection> inspections = washingType == null
@@ -186,7 +211,7 @@ public class WashingPeriodReportExcelService {
                 ? "GRAND TOTAL (BULK + REPAIR)"
                 : washingType;
 
-        Map<String, List<Inspection>> groups = groupInspections(inspections, reportType);
+        Map<String, List<Inspection>> groups = groupInspections(inspections, grouping);
 
         int dateCount = dates.size();
         int totalColumn = dateCount + 1;
@@ -240,9 +265,9 @@ public class WashingPeriodReportExcelService {
 
             String heading;
 
-            if ("BUYERWISE".equals(reportType)) {
+            if (grouping == ReportGroupingType.BUYERWISE) {
                 heading = "BUYER: " + buyerFilter;
-            } else if ("STYLEWISE".equals(reportType)) {
+            } else if (grouping == ReportGroupingType.STYLEWISE) {
                 heading = "STYLE: " + styleFilter;
             } else {
                 heading = "WASHING DATA - " + titleSuffix;
@@ -379,11 +404,6 @@ public class WashingPeriodReportExcelService {
                     goodByDay, totalColumn, sum(goodByDay),
                     percentColumn, null, styles);
 
-            // rowIndex = writeSummaryRow(
-            // sheet, rowIndex, "QTY TRANSFER",
-            // transferByDay, totalColumn, sum(transferByDay),
-            // percentColumn, null, styles);
-
             rowIndex += 2;
         }
 
@@ -510,21 +530,22 @@ public class WashingPeriodReportExcelService {
 
     private Map<String, List<Inspection>> groupInspections(
             List<Inspection> inspections,
-            String reportType) {
+            ReportGroupingType grouping) {
 
         Map<String, List<Inspection>> groups = new LinkedHashMap<>();
 
         String key;
 
-        if ("BUYERWISE".equals(reportType)) {
+        if (grouping == ReportGroupingType.BUYERWISE) {
             key = "SELECTED BUYER";
-        } else if ("STYLEWISE".equals(reportType)) {
+        } else if (grouping == ReportGroupingType.STYLEWISE) {
             key = "SELECTED STYLE";
         } else {
             key = "ALL DATA";
         }
 
         groups.put(key, inspections);
+
         return groups;
     }
 
@@ -547,17 +568,19 @@ public class WashingPeriodReportExcelService {
                         inspection.getSubmittedBy().getId());
     }
 
-    private String normalizeReportType(String value) {
-        String normalized = value == null || value.isBlank()
-                ? "ALL"
-                : value.trim().toUpperCase(Locale.ROOT);
+    private ReportGroupingType normalizeGroupingType(
+            ReportGroupingType groupingType) {
 
-        if (!List.of("ALL", "BUYERWISE", "STYLEWISE")
-                .contains(normalized)) {
-            throw new BadRequestException("Tipe laporan harus ALL, BUYERWISE, atau STYLEWISE.");
+        if (groupingType == null) {
+            return ReportGroupingType.DATEWISE;
         }
 
-        return normalized;
+        if (groupingType == ReportGroupingType.LINEWISE) {
+            throw new BadRequestException(
+                    "Laporan Washing tidak mendukung grouping LINEWISE.");
+        }
+
+        return groupingType;
     }
 
     private String normalizeFilter(String value) {
@@ -637,20 +660,35 @@ public class WashingPeriodReportExcelService {
     }
 
     private void validateBuyerExists(String buyer) {
-        if (buyer == null || buyer.isBlank()
-                || "ALL".equalsIgnoreCase(buyer.trim())) {
-            throw new BadRequestException(
-                    "Untuk laporan BUYERWISE, pilih satu buyer terlebih dahulu.");
+
+        if ("ALL".equalsIgnoreCase(buyer)) {
+            return;
         }
 
-        String buyerName = buyer.trim();
-
         boolean exists = inspectionRepository
-                .existsByBuyerNameIgnoreCase(buyerName);
+                .existsByBuyerNameIgnoreCase(buyer);
 
         if (!exists) {
             throw new BadRequestException(
-                    "Buyer '" + buyerName + "' tidak ditemukan.");
+                    "Buyer '" + buyer + "' tidak ditemukan.");
+        }
+    }
+
+    private void validateStyleExists(String style, String buyer) {
+
+        if ("ALL".equalsIgnoreCase(style)) {
+            return;
+        }
+
+        boolean exists = inspectionRepository
+                .existsByBuyerNameIgnoreCaseAndStyleCodeIgnoreCase(
+                        buyer,
+                        style);
+
+        if (!exists) {
+            throw new BadRequestException(
+                    "Style '" + style + "' tidak ditemukan untuk buyer '"
+                            + buyer + "'.");
         }
     }
 

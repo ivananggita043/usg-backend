@@ -41,6 +41,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.garmentqc.system.enums.DefectCategory;
+import com.garmentqc.system.enums.ReportGroupingType;
 import com.garmentqc.system.exception.BadRequestException;
 import com.garmentqc.system.exception.UnauthorizedException;
 import com.garmentqc.system.model.DefectType;
@@ -58,10 +59,7 @@ public class FinishingPeriodReportExcelService {
 
         private static final ZoneId ZONE = ZoneId.of("Asia/Jakarta");
         private static final String FINISHING = "FINISHING";
-
         private static final String ALL = "ALL";
-        private static final String BUYERWISE = "BUYERWISE";
-        private static final String STYLEWISE = "STYLEWISE";
 
         private static final DateTimeFormatter DATE_FORMAT = DateTimeFormatter.ofPattern("dd MMMM yyyy",
                         Locale.ENGLISH);
@@ -71,11 +69,10 @@ public class FinishingPeriodReportExcelService {
 
         public byte[] exportWeeklyFinishingExcel(
                         LocalDate date,
-                        String reportType,
+                        ReportGroupingType groupingType,
                         String buyer,
                         String style,
                         User currentUser) throws IOException {
-
                 if (date == null) {
                         throw new BadRequestException(
                                         "Tanggal laporan wajib diisi.");
@@ -89,7 +86,7 @@ public class FinishingPeriodReportExcelService {
                 return exportPeriod(
                                 start,
                                 end,
-                                reportType,
+                                groupingType,
                                 buyer,
                                 style,
                                 currentUser,
@@ -99,7 +96,7 @@ public class FinishingPeriodReportExcelService {
         public byte[] exportMonthlyFinishingExcel(
                         int month,
                         int year,
-                        String reportType,
+                        ReportGroupingType groupingType,
                         String buyer,
                         String style,
                         User currentUser) throws IOException {
@@ -116,7 +113,7 @@ public class FinishingPeriodReportExcelService {
                 return exportPeriod(
                                 period.atDay(1),
                                 period.atEndOfMonth(),
-                                reportType,
+                                groupingType,
                                 buyer,
                                 style,
                                 currentUser,
@@ -126,7 +123,7 @@ public class FinishingPeriodReportExcelService {
         private byte[] exportPeriod(
                         LocalDate start,
                         LocalDate end,
-                        String reportTypeValue,
+                        ReportGroupingType groupingTypeValue,
                         String buyerValue,
                         String styleValue,
                         User currentUser,
@@ -142,16 +139,22 @@ public class FinishingPeriodReportExcelService {
                                         "Tidak memiliki akses laporan Finishing.");
                 }
 
-                String reportType = normalizeReportType(reportTypeValue);
+                ReportGroupingType groupingType = normalizeGroupingType(groupingTypeValue);
+
                 String buyerFilter = normalizeFilter(buyerValue);
                 String styleFilter = normalizeFilter(styleValue);
 
-                if (BUYERWISE.equals(reportType) && ALL.equalsIgnoreCase(buyerFilter)) {
+                validateBuyerExists(buyerFilter);
+                validateStyleExists(styleFilter, buyerFilter);
+
+                if (groupingType == ReportGroupingType.BUYERWISE
+                                && ALL.equalsIgnoreCase(buyerFilter)) {
                         throw new BadRequestException(
                                         "Untuk laporan BUYERWISE, pilih satu buyer terlebih dahulu.");
                 }
 
-                if (STYLEWISE.equals(reportType) && ALL.equalsIgnoreCase(styleFilter)) {
+                if (groupingType == ReportGroupingType.STYLEWISE
+                                && ALL.equalsIgnoreCase(styleFilter)) {
                         throw new BadRequestException(
                                         "Untuk laporan STYLEWISE, pilih satu style terlebih dahulu.");
                 }
@@ -190,23 +193,12 @@ public class FinishingPeriodReportExcelService {
                         dates.add(d);
                 }
 
-                /*
-                 * ALL, BUYERWISE, dan STYLEWISE memakai struktur
-                 * laporan yang sama, dengan kolom tanggal.
-                 *
-                 * Perbedaannya hanya filter data yang diterapkan:
-                 * - ALL: semua data sesuai filter buyer/style.
-                 * - BUYERWISE: buyer tertentu atau semua buyer.
-                 * - STYLEWISE: style tertentu atau semua style.
-                 *
-                 * Filter buyer dan style dapat digunakan bersamaan.
-                 */
                 return buildWorkbook(
                                 start,
                                 end,
                                 dates,
                                 inspections,
-                                reportType,
+                                groupingType,
                                 buyerFilter,
                                 styleFilter,
                                 periodType);
@@ -217,7 +209,7 @@ public class FinishingPeriodReportExcelService {
                         LocalDate end,
                         List<LocalDate> dates,
                         List<Inspection> inspections,
-                        String reportType,
+                        ReportGroupingType groupingType,
                         String buyer,
                         String style,
                         String periodType) throws IOException {
@@ -243,7 +235,7 @@ public class FinishingPeriodReportExcelService {
                         mergedRow(
                                         sheet, 1, 0, lastColumn,
                                         periodType + " REPORT FINISHING SECTION - "
-                                                        + reportType,
+                                                        + groupingType,
                                         styles.subtitle);
 
                         mergedRow(
@@ -266,16 +258,11 @@ public class FinishingPeriodReportExcelService {
 
                         mergedRow(
                                         sheet, 5, 0, lastColumn,
-                                        "REPORT TYPE: " + reportType
+                                        "REPORT TYPE: " + groupingType
                                                         + "     BUYER FILTER: " + buyer
                                                         + "     STYLE FILTER: " + style,
                                         styles.period);
 
-                        /*
-                         * Header tanggal.
-                         * Struktur ini sama untuk ALL, BUYERWISE,
-                         * dan STYLEWISE.
-                         */
                         Row headerGroup = sheet.createRow(6);
                         Row headerDates = sheet.createRow(7);
 
@@ -707,19 +694,56 @@ public class FinishingPeriodReportExcelService {
                                                 inspection.getSubmittedBy().getId());
         }
 
-        private String normalizeReportType(String value) {
-                String normalized = value == null || value.isBlank()
-                                ? ALL
-                                : value.trim().toUpperCase(Locale.ROOT);
+        private void validateBuyerExists(String buyer) {
 
-                if (!List.of(ALL, BUYERWISE, STYLEWISE)
-                                .contains(normalized)) {
-
-                        throw new BadRequestException(
-                                        "Tipe laporan harus ALL, BUYERWISE, atau STYLEWISE.");
+                if (ALL.equalsIgnoreCase(buyer)) {
+                        return;
                 }
 
-                return normalized;
+                boolean exists = inspectionRepository
+                                .existsByBuyerNameIgnoreCase(buyer);
+
+                if (!exists) {
+                        throw new BadRequestException(
+                                        "Buyer '" + buyer + "' tidak ditemukan.");
+                }
+        }
+
+        private void validateStyleExists(String style, String buyer) {
+
+                if (ALL.equalsIgnoreCase(style)) {
+                        return;
+                }
+
+                boolean exists = inspectionRepository
+                                .existsByBuyerNameIgnoreCaseAndStyleCodeIgnoreCase(
+                                                buyer,
+                                                style);
+
+                if (!exists) {
+                        throw new BadRequestException(
+                                        "Style '" + style
+                                                        + "' tidak ditemukan untuk buyer '"
+                                                        + buyer + "'.");
+                }
+        }
+
+        private ReportGroupingType normalizeGroupingType(
+                        ReportGroupingType groupingType) {
+
+                if (groupingType == null) {
+                        return ReportGroupingType.DATEWISE;
+                }
+
+                if (groupingType != ReportGroupingType.DATEWISE
+                                && groupingType != ReportGroupingType.BUYERWISE
+                                && groupingType != ReportGroupingType.STYLEWISE) {
+
+                        throw new BadRequestException(
+                                        "Grouping Finishing hanya mendukung DATEWISE, BUYERWISE, dan STYLEWISE.");
+                }
+
+                return groupingType;
         }
 
         private String normalizeFilter(String value) {

@@ -1,5 +1,6 @@
 package com.garmentqc.system.service;
 
+import com.garmentqc.system.enums.ReportGroupingType;
 import com.garmentqc.system.exception.BadRequestException;
 import com.garmentqc.system.model.DefectType;
 import com.garmentqc.system.model.Inspection;
@@ -39,10 +40,6 @@ public class SewingPeriodReportExcelService {
         private static final String SEWING = "SEWING";
 
         private static final String ALL = "ALL";
-        private static final String LINEWISE = "LINEWISE";
-        private static final String DATEWISE = "DATEWISE";
-        private static final String BUYERWISE = "BUYERWISE";
-        private static final String STYLEWISE = "STYLEWISE";
 
         private static final DateTimeFormatter DATE_FORMAT = DateTimeFormatter.ofPattern("dd MMMM yyyy");
 
@@ -78,7 +75,7 @@ public class SewingPeriodReportExcelService {
                         String buyer,
                         String style,
                         String line,
-                        String groupingType,
+                        ReportGroupingType groupingType,
                         User currentUser) throws IOException {
 
                 if (selectedDate == null) {
@@ -107,7 +104,7 @@ public class SewingPeriodReportExcelService {
                         String buyer,
                         String style,
                         String line,
-                        String groupingType,
+                        ReportGroupingType groupingType,
                         User currentUser) throws IOException {
 
                 YearMonth yearMonth;
@@ -136,7 +133,7 @@ public class SewingPeriodReportExcelService {
                         String buyerFilter,
                         String styleFilter,
                         String lineFilter,
-                        String groupingType,
+                        ReportGroupingType groupingType,
                         User currentUser) throws IOException {
 
                 if (startDate == null
@@ -145,16 +142,29 @@ public class SewingPeriodReportExcelService {
                         throw new BadRequestException("Periode tanggal tidak valid.");
                 }
 
-                String grouping = normalizeGroupingType(groupingType);
+                ReportGroupingType grouping = normalizeGroupingType(groupingType);
+
+                validateReportFilters(grouping, buyerFilter, styleFilter);
+
+                validateBuyerExists(buyerFilter);
+
+                validateStyleExists(styleFilter, buyerFilter);
 
                 String section = inspectionReportService.resolveSectionForUser(
                                 currentUser, SEWING);
 
-                if (section != null
-                                && !section.isBlank()
-                                && !SEWING.equalsIgnoreCase(section)) {
+                if (currentUser == null || currentUser.getRole() == null) {
+                        throw new BadRequestException("User tidak valid.");
+                }
+
+                if (!"SUPER_ADMIN".equals(currentUser.getRole().name())
+                                && (section == null || !SEWING.equalsIgnoreCase(section.trim()))) {
                         throw new BadRequestException(
                                         "User tidak memiliki akses ke laporan Sewing.");
+                }
+
+                if (isSpecificFilter(lineFilter)) {
+                        validateLineExists(lineFilter);
                 }
 
                 Instant start = startDate.atStartOfDay(ZONE_ID).toInstant();
@@ -190,13 +200,13 @@ public class SewingPeriodReportExcelService {
                                                                                                 Comparator.naturalOrder())))
                                 .toList();
 
-                boolean oneLine = LINEWISE.equals(grouping)
+                boolean oneLine = grouping == ReportGroupingType.LINEWISE
                                 && isSpecificFilter(lineFilter);
 
                 boolean dateColumns = oneLine
-                                || BUYERWISE.equals(grouping)
-                                || STYLEWISE.equals(grouping)
-                                || DATEWISE.equals(grouping);
+                                || grouping == ReportGroupingType.BUYERWISE
+                                || grouping == ReportGroupingType.STYLEWISE
+                                || grouping == ReportGroupingType.DATEWISE;
 
                 List<ColumnData> columns = dateColumns
                                 ? createDateColumns(startDate, endDate)
@@ -619,27 +629,12 @@ public class SewingPeriodReportExcelService {
                 }
         }
 
-        private String normalizeGroupingType(String groupingType) {
-                if (groupingType == null || groupingType.isBlank()) {
-                        return LINEWISE;
-                }
+        private ReportGroupingType normalizeGroupingType(
+                        ReportGroupingType groupingType) {
 
-                String normalized = groupingType.trim()
-                                .toUpperCase(Locale.ROOT);
-
-                if (ALL.equals(normalized)) {
-                        normalized = LINEWISE;
-                }
-
-                if (!LINEWISE.equals(normalized)
-                                && !BUYERWISE.equals(normalized)
-                                && !STYLEWISE.equals(normalized)
-                                && !DATEWISE.equals(normalized)) {
-                        throw new BadRequestException(
-                                        "Tipe laporan tidak valid. Gunakan LINEWISE, BUYERWISE, STYLEWISE, atau DATEWISE.");
-                }
-
-                return normalized;
+                return groupingType == null
+                                ? ReportGroupingType.LINEWISE
+                                : groupingType;
         }
 
         private boolean isSpecificFilter(String filter) {
@@ -715,6 +710,7 @@ public class SewingPeriodReportExcelService {
 
                 if ("USER".equals(role)) {
                         return inspection.getSubmittedBy() != null
+                                        && currentUser.getId() != null
                                         && currentUser.getId().equals(
                                                         inspection.getSubmittedBy().getId());
                 }
@@ -824,6 +820,94 @@ public class SewingPeriodReportExcelService {
                                                         rowIndex,
                                                         firstCol,
                                                         lastCol));
+                }
+        }
+
+        private void validateLineExists(String lineName) {
+                boolean exists = lineRepository.findAll()
+                                .stream()
+                                .anyMatch(line -> line.getName() != null
+                                                && line.getName().equalsIgnoreCase(lineName.trim())
+                                                && line.getSection() != null
+                                                && SEWING.equals(line.getSection().name()));
+
+                if (!exists) {
+                        throw new BadRequestException(
+                                        "Line '" + lineName
+                                                        + "' tidak ditemukan pada section Sewing.");
+                }
+        }
+
+        private void validateReportFilters(
+                        ReportGroupingType groupingType,
+                        String buyer,
+                        String style) {
+
+                boolean buyerSelected = isSpecificFilter(buyer);
+                boolean styleSelected = isSpecificFilter(style);
+
+                if (groupingType == ReportGroupingType.BUYERWISE && !buyerSelected) {
+                        throw new BadRequestException(
+                                        "Buyer wajib dipilih untuk grouping BUYERWISE.");
+                }
+
+                if (groupingType == ReportGroupingType.STYLEWISE) {
+
+                        if (!buyerSelected) {
+                                throw new BadRequestException(
+                                                "Buyer wajib dipilih untuk grouping STYLEWISE.");
+                        }
+
+                        if (!styleSelected) {
+                                throw new BadRequestException(
+                                                "Style wajib dipilih untuk grouping STYLEWISE.");
+                        }
+                }
+        }
+
+        private void validateBuyerExists(String buyer) {
+
+                if (!isSpecificFilter(buyer)) {
+                        return;
+                }
+
+                String buyerName = buyer.trim();
+
+                boolean exists = inspectionRepository
+                                .existsByBuyerNameIgnoreCase(buyerName);
+
+                if (!exists) {
+                        throw new BadRequestException(
+                                        "Buyer '" + buyerName + "' tidak ditemukan.");
+                }
+        }
+
+        private void validateStyleExists(String style, String buyer) {
+
+                if (!isSpecificFilter(style)) {
+                        return;
+                }
+
+                String styleCode = style.trim();
+
+                boolean exists;
+
+                if (isSpecificFilter(buyer)) {
+                        exists = inspectionRepository
+                                        .existsByBuyerNameIgnoreCaseAndStyleCodeIgnoreCase(
+                                                        buyer.trim(),
+                                                        styleCode);
+                } else {
+                        exists = inspectionRepository
+                                        .existsByStyleCodeIgnoreCase(styleCode);
+                }
+
+                if (!exists) {
+                        throw new BadRequestException(
+                                        "Style '" + styleCode + "' tidak ditemukan"
+                                                        + (isSpecificFilter(buyer)
+                                                                        ? " untuk buyer '" + buyer.trim() + "'."
+                                                                        : "."));
                 }
         }
 
