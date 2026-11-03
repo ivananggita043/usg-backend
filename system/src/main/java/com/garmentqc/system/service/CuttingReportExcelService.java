@@ -35,7 +35,10 @@ import com.garmentqc.system.dto.CuttingReportResponse.DetailRow;
 import com.garmentqc.system.dto.CuttingReportResponse.ProcessSummary;
 import com.garmentqc.system.enums.CuttingProcessCheck;
 
+import lombok.RequiredArgsConstructor;
+
 @Service
+@RequiredArgsConstructor
 public class CuttingReportExcelService {
 
         private static final int COLUMN_COUNT = 10;

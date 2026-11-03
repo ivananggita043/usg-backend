@@ -23,5 +23,6 @@ public class Buyer extends BaseEntity {
     private String name;
 
     @OneToMany (mappedBy = "buyer", cascade = CascadeType.ALL)
-    private List<Style> styles = new ArrayList<>();    
+    private List<Style> styles = new ArrayList<>();
+
 }

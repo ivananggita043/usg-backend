@@ -559,7 +559,7 @@ public class WashingReportExcelService {
 
                 long bulkInspect = 0;
                 long bulkDefect = 0;
-                long repairInspect = 0;
+                long repairInspect = 0; 
                 long repairDefect = 0;
 
                 for (int i = 0; i < bulkColumns.size(); i++) {

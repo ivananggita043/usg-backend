@@ -72,11 +72,7 @@ public class WashingPeriodReportExcelService {
     private final InspectionReportService inspectionReportService;
     private final BuyerRepository buyerRepository;
 
-    public byte[] exportWeeklyWashingExcel(
-            LocalDate date,
-            ReportGroupingType groupingType,
-            String buyer,
-            String style,
+    public byte[] exportWeeklyWashingExcel(LocalDate date, ReportGroupingType groupingType, String buyer, String style,
             User currentUser) throws IOException {
 
         if (date == null) {
@@ -89,14 +85,8 @@ public class WashingPeriodReportExcelService {
         return exportPeriod(start, end, groupingType, buyer, style, currentUser, "WEEKLY");
     }
 
-    public byte[] exportMonthlyWashingExcel(
-            int month,
-            int year,
-            ReportGroupingType groupingType,
-            String buyer,
-            String style,
-            User currentUser) throws IOException {
-
+    public byte[] exportMonthlyWashingExcel(int month, int year, ReportGroupingType groupingType, String buyer,
+            String style, User currentUser) throws IOException {
         final YearMonth period;
 
         try {

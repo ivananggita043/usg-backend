@@ -39,7 +39,6 @@ public class WashingReportExcelAdminController {
                         "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
 
         private static final DateTimeFormatter MONTH_FORMAT = DateTimeFormatter.ofPattern("yyyy-MM");
-
         private static final DateTimeFormatter DATE_FORMAT = DateTimeFormatter.ISO_DATE;
 
         private final WashingReportExcelService reportService;
@@ -66,9 +65,7 @@ public class WashingReportExcelAdminController {
                         @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
 
                         @RequestParam(defaultValue = "DATEWISE") ReportGroupingType groupingType,
-
                         @RequestParam(defaultValue = "ALL") String buyer,
-
                         @RequestParam(defaultValue = "ALL") String style) throws IOException {
 
                 User currentUser = validateWashingExportAccess();
@@ -101,9 +98,7 @@ public class WashingReportExcelAdminController {
                         @RequestParam int year,
 
                         @RequestParam(defaultValue = "DATEWISE") ReportGroupingType groupingType,
-
                         @RequestParam(defaultValue = "ALL") String buyer,
-
                         @RequestParam(defaultValue = "ALL") String style) throws IOException {
 
                 User currentUser = validateWashingExportAccess();
@@ -142,8 +137,7 @@ public class WashingReportExcelAdminController {
                         String style) {
 
                 if (groupingType == null) {
-                        throw new BadRequestException(
-                                        "Grouping laporan wajib dipilih.");
+                        throw new BadRequestException("Grouping laporan wajib dipilih.");
                 }
 
                 if (groupingType != ReportGroupingType.DATEWISE
@@ -197,27 +191,19 @@ public class WashingReportExcelAdminController {
                                 || authentication.getName().isBlank()
                                 || "anonymousUser".equals(authentication.getName())) {
 
-                        throw new UnauthorizedException(
-                                        "Anda harus login untuk mengakses export Washing.");
+                        throw new UnauthorizedException("Anda harus login untuk mengakses export Washing.");
                 }
 
                 User user = userRepository
                                 .findByUsername(authentication.getName())
-                                .orElseThrow(() -> new UnauthorizedException(
-                                                "User yang login tidak ditemukan."));
+                                .orElseThrow(() -> new UnauthorizedException("User yang login tidak ditemukan."));
 
-                if (user.getRole() == null
-                                || !"ADMIN".equals(user.getRole().name())) {
-
-                        throw new UnauthorizedException(
-                                        "Hanya Admin yang dapat mengakses export laporan Washing.");
+                if (user.getRole() == null || !"ADMIN".equals(user.getRole().name())) {
+                        throw new UnauthorizedException("Hanya Admin yang dapat mengakses export laporan Washing.");
                 }
 
-                if (user.getSection() == null
-                                || !"WASHING".equals(user.getSection().name())) {
-
-                        throw new UnauthorizedException(
-                                        "Anda hanya dapat mengakses laporan sesuai section Washing.");
+                if (user.getSection() == null || !"WASHING".equals(user.getSection().name())) {
+                        throw new UnauthorizedException("Anda hanya dapat mengakses laporan sesuai section Washing.");
                 }
 
                 return user;

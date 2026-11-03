@@ -1,7 +1,7 @@
-server:
-  port: 8080
-
 spring:
+  config:
+    import: optional:file:./system/.env[.properties],optional:file:./.env[.properties]
+
   application:
     name: garment-qc-system
 
@@ -20,7 +20,16 @@ spring:
       hibernate:
         format_sql: true
 
+server:
+  port: ${PORT:8080}
+
 app:
   jwt:
     secret: ${JWT_SECRET}
     expiration-ms: 3600000
+
+  attendance:
+    latitude: ${ATTENDANCE_LATITUDE}
+    longitude: ${ATTENDANCE_LONGITUDE}
+    radius-meter: 100
+    max-gps-accuracy-meter: 50

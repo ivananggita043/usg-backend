@@ -49,7 +49,6 @@ public class PackingReportExcelService {
             "HANGER",
             "ACCESSORIES");
 
-    // Header sekarang 3 baris: HEADER_ROW (DEFECT), +1 (nama defect), +2 (QTY / %)
     private static final int HEADER_ROW = 5;
     private static final int FIRST_DATA_ROW = 8;
 
@@ -200,8 +199,6 @@ public class PackingReportExcelService {
             }
 
             sheet.setColumnWidth(notesCol, 30 * 256);
-
-            // Freeze kolom fixed (A-H) dan semua baris judul + header
             sheet.createFreezePane(8, FIRST_DATA_ROW);
 
             sheet.getPrintSetup().setLandscape(true);
@@ -222,9 +219,9 @@ public class PackingReportExcelService {
     }
 
     private void createHeaders(Sheet sheet, Styles styles, int defectStartCol, int notesCol) {
-        Row row1 = sheet.createRow(HEADER_ROW); // grup "DEFECT"
-        Row row2 = sheet.createRow(HEADER_ROW + 1); // nama defect
-        Row row3 = sheet.createRow(HEADER_ROW + 2); // QTY / %
+        Row row1 = sheet.createRow(HEADER_ROW); 
+        Row row2 = sheet.createRow(HEADER_ROW + 1); 
+        Row row3 = sheet.createRow(HEADER_ROW + 2); 
 
         row1.setHeightInPoints(22);
         row2.setHeightInPoints(34);
@@ -234,7 +231,6 @@ public class PackingReportExcelService {
                 "NO", "BUYER", "STYLE", "COLOR", "QTY INSPECT", "QTY GOOD", "QTY REJECT", "% QTY REJECT"
         };
 
-        // Kolom fixed: merge vertikal 3 baris
         for (int c = 0; c < fixedHeaders.length; c++) {
             setCell(row1, c, fixedHeaders[c], styles.header);
             setCell(row2, c, "", styles.header);
@@ -242,14 +238,12 @@ public class PackingReportExcelService {
             sheet.addMergedRegion(new CellRangeAddress(HEADER_ROW, HEADER_ROW + 2, c, c));
         }
 
-        // Grup "DEFECT" di atas semua kolom defect
         int defectEndCol = notesCol - 1;
         for (int c = defectStartCol; c <= defectEndCol; c++) {
             setCell(row1, c, c == defectStartCol ? "DEFECT" : "", styles.header);
         }
         sheet.addMergedRegion(new CellRangeAddress(HEADER_ROW, HEADER_ROW, defectStartCol, defectEndCol));
 
-        // Nama defect (merge 2 kolom) + sub-header QTY / %
         int col = defectStartCol;
         for (String defectName : DEFECT_TYPES) {
             setCell(row2, col, defectName, styles.header);
@@ -261,7 +255,6 @@ public class PackingReportExcelService {
             col += 2;
         }
 
-        // NOTES merge vertikal 3 baris
         setCell(row1, notesCol, "NOTES", styles.header);
         setCell(row2, notesCol, "", styles.header);
         setCell(row3, notesCol, "", styles.header);

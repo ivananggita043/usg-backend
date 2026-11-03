@@ -1,62 +1,81 @@
-// package com.garmentqc.system.model;
+package com.garmentqc.system.model;
 
-// import java.time.Instant;
-// import java.time.LocalDate;
+import java.time.Instant;
+import java.time.LocalDate;
 
-// import jakarta.persistence.Column;
-// import jakarta.persistence.Entity;
-// import jakarta.persistence.FetchType;
-// import jakarta.persistence.JoinColumn;
-// import jakarta.persistence.ManyToOne;
-// import jakarta.persistence.Table;
-// import jakarta.persistence.UniqueConstraint;
-// import lombok.Getter;
-// import lombok.NoArgsConstructor;
-// import lombok.Setter;
+import com.garmentqc.system.enums.AttendanceStatus;
 
-// @Entity
-// @Table(name = "attendances", uniqueConstraints = {
-//         @UniqueConstraint(name = "uk_attendance_user_work_date", columnNames = { "user_id", "work_date" })
-// })
-// @Getter
-// @Setter
-// @NoArgsConstructor
-// public class Attendance extends BaseEntity {
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 
-//     @ManyToOne(fetch = FetchType.LAZY, optional = false)
-//     @JoinColumn(name = "user_id", nullable = false)
-//     private User user;
+@Entity
+@Table(name = "attendances", uniqueConstraints = {
+        @UniqueConstraint(name = "uk_attendance_user_date", columnNames = { "user_id", "attendance_date" })
 
-//     @Column(name = "work_date", nullable = false)
-//     private LocalDate workDate;
+})
+@Getter
+@Setter
+@NoArgsConstructor
+public class Attendance extends BaseEntity {
 
-//     @Column(name = "clock_in_at")
-//     private Instant clockInAt;
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "user_id", nullable = false)
+    private User user;
 
-//     @Column(name = "clock_out_at")
-//     private Instant clockOutAt;
+    @Column(name = "attendance_date", nullable = false)
+    private LocalDate attendanceDate;
 
-//     @Column(name = "clock_in_latitude", precision = 10, scale = 7)
-//     private Double clockInLatitude;
+    @Column(name = "check_in_at")
+    private Instant checkInAt;
 
-//     @Column(name = "clock_in_longitude", precision = 10, scale = 7)
-//     private Double clockInLongitude;
+    @Column(name = "check_out_at")
+    private Instant checkOutAt;
 
-//     @Column(name = "clock_in_accuracy_meters")
-//     private Double clockInAccuracyMeters;
+    @Column(name = "check_in_latitude")
+    private Double checkInLatitude;
 
-//     @Column(name = "clock_out_latitude", precision = 10, scale = 7)
-//     private Double clockOutLatitude;
+    @Column(name = "check_in_longitude")
+    private Double checkInLongitude;
 
-//     @Column(name = "clock_out_longitude", precision = 10, scale = 7)
-//     private Double clockOutLongitude;
+    @Column(name = "check_out_latitude")
+    private Double checkOutLatitude;
 
-//     @Column(name = "clock_out_accuracy_meters")
-//     private Double clockOutAccuracyMeters;
+    @Column(name = "check_out_longitude")
+    private Double checkOutLongitude;
 
-//     @Column(name = "break_minutes", nullable = false)
-//     private Integer breakMinutes = 0;
+    @Column(name = "check_in_accuracy")
+    private Double checkInAccuracy;
 
-//     @Column(name = "target_pcs_per_hour", nullable = false)
-//     private Integer targetPcsPerHour = 40;
-// }
+    @Column(name = "check_out_accuracy")
+    private Double checkOutAccuracy;
+
+    @Column(name = "break_start_at")
+    private Instant breakStartAt;
+
+    @Column(name = "break_end_at")
+    private Instant breakEndAt;
+
+    @Column(name = "working_minutes")
+    private Integer workingMinutes = 0;
+
+    @Column(name = "break_minutes")
+    private Integer breakMinutes = 0;
+
+    @Column(name = "effective_minutes")
+    private Integer effectiveMinutes = 0;
+
+    @Enumerated(EnumType.STRING)
+    @Column(length = 20)
+    private AttendanceStatus status = AttendanceStatus.INCOMPLETE;
+
+}

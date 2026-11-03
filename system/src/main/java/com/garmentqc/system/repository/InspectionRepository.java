@@ -18,4 +18,6 @@ public interface InspectionRepository extends JpaRepository<Inspection, String> 
 
     boolean existsByBuyerNameIgnoreCaseAndStyleCodeIgnoreCase(String buyerName, String styleCode);
 
+    List<Inspection> findBySubmittedBy_IdAndCreatedAtBetween(String userId, Instant start, Instant end);
+
 }

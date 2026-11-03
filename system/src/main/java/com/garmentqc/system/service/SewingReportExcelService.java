@@ -99,9 +99,7 @@ public class SewingReportExcelService {
                 .filter(inspection -> inspection.getLine() != null)
                 .filter(inspection -> inspection.getLine().getSection() != null)
                 .filter(inspection -> SEWING.equals(inspection.getLine().getSection().name()))
-                .filter(inspection -> section == null
-                        || section.isBlank()
-                        || section.equalsIgnoreCase(SEWING))
+                .filter(inspection -> section == null || section.isBlank() || section.equalsIgnoreCase(SEWING))
                 .filter(inspection -> canViewInspection(inspection, currentUser))
                 .sorted(
                         Comparator
@@ -173,10 +171,8 @@ public class SewingReportExcelService {
             sheet.getRow(infoStartRow).getCell(totalColumn).setCellValue("TOTAL");
             sheet.getRow(infoStartRow).getCell(lastColumn).setCellValue("% DEFECT");
 
-            sheet.addMergedRegion(new CellRangeAddress(
-                    infoStartRow, rowIndex - 1, totalColumn, totalColumn));
-            sheet.addMergedRegion(new CellRangeAddress(
-                    infoStartRow, rowIndex - 1, lastColumn, lastColumn));
+            sheet.addMergedRegion(new CellRangeAddress(infoStartRow, rowIndex - 1, totalColumn, totalColumn));
+            sheet.addMergedRegion(new CellRangeAddress(infoStartRow, rowIndex - 1, lastColumn, lastColumn));
 
             rowIndex = writeDefectDetails(
                     sheet, rowIndex, lines, lastColumn, grandInspect, styles);
@@ -325,8 +321,7 @@ public class SewingReportExcelService {
         for (Map.Entry<String, Map<String, Map<String, Integer>>> categoryEntry : grouped.entrySet()) {
             String categoryName = categoryEntry.getKey();
 
-            createMergedRow(sheet, rowIndex, 0, lastColumn,
-                    categoryName, styles.categoryStyle);
+            createMergedRow(sheet, rowIndex, 0, lastColumn, categoryName, styles.categoryStyle);
 
             rowIndex++;
 
@@ -357,8 +352,7 @@ public class SewingReportExcelService {
                     for (int column = 0; column < lines.size(); column++) {
                         LineData line = lines.get(column);
 
-                        int quantity = line.getDefectQuantity(
-                                categoryName, areaName, defectName);
+                        int quantity = line.getDefectQuantity(categoryName, areaName, defectName);
 
                         totalQuantity += quantity;
 

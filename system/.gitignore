@@ -35,3 +35,5 @@ build/
 ### Environment ###
 application-supabase.yml
 .env
+.env.*
+!.env.example

@@ -33,7 +33,10 @@ import com.garmentqc.system.repository.LineRepository;
 import com.garmentqc.system.repository.UserLineRepository;
 import com.garmentqc.system.repository.UserRepository;
 
+import lombok.RequiredArgsConstructor;
+
 @Service
+@RequiredArgsConstructor
 public class InspectionService {
 
         private static final Set<String> SUPPORTED_SECTIONS = Set.of(
@@ -49,17 +52,6 @@ public class InspectionService {
         private final UserRepository userRepository;
         private final DefectAreaRepository defectAreaRepository;
         private final UserLineRepository userLineRepository;
-
-        public InspectionService(InspectionRepository inspectionRepository, LineRepository lineRepository,
-                        DefectTypeRepository defectTypeRepository, UserRepository userRepository,
-                        DefectAreaRepository defectAreaRepository, UserLineRepository userLineRepository) {
-                this.inspectionRepository = inspectionRepository;
-                this.lineRepository = lineRepository;
-                this.defectTypeRepository = defectTypeRepository;
-                this.userRepository = userRepository;
-                this.defectAreaRepository = defectAreaRepository;
-                this.userLineRepository = userLineRepository;
-        }
 
         @Transactional
         public InspectionResponse create(InspectionRequest request) {
