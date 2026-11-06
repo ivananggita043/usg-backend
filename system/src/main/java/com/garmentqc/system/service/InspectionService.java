@@ -39,8 +39,7 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class InspectionService {
 
-        private static final Set<String> SUPPORTED_SECTIONS = Set.of(
-                        "SEWING", "FINISHING", "WASHING", "PACKING");
+        private static final Set<String> SUPPORTED_SECTIONS = Set.of("SEWING", "FINISHING", "WASHING", "PACKING");
 
         private static final String SUPER_ADMIN = "SUPER_ADMIN";
         private static final String ADMIN = "ADMIN";
@@ -139,14 +138,11 @@ public class InspectionService {
                 String role = currentUser.getRole().name();
 
                 if (SUPER_ADMIN.equals(role) && selectedSection == null) {
-                        throw new BadRequestException(
-                                        "Super Admin wajib memilih section: " + String.join(", ", SUPPORTED_SECTIONS));
+                        throw new BadRequestException("Super Admin wajib memilih section: " + String.join(", ", SUPPORTED_SECTIONS));
                 }
 
-                if (selectedSection != null
-                                && !SUPPORTED_SECTIONS.contains(selectedSection)) {
-                        throw new BadRequestException(
-                                        "Section tidak valid. Pilihan: " + String.join(", ", SUPPORTED_SECTIONS));
+                if (selectedSection != null && !SUPPORTED_SECTIONS.contains(selectedSection)) {
+                        throw new BadRequestException("Section tidak valid. Pilihan: " + String.join(", ", SUPPORTED_SECTIONS));
                 }
 
                 return inspectionRepository.findAll()
@@ -278,8 +274,7 @@ public class InspectionService {
                                         || line.getSection() == null
                                         || !user.getSection().equals(line.getSection())) {
 
-                                throw new AccessDeniedException(
-                                                "Admin hanya dapat menggunakan line dari section miliknya");
+                                throw new AccessDeniedException( "Admin hanya dapat menggunakan line dari section miliknya");
                         }
                         return;
                 }
@@ -289,14 +284,12 @@ public class InspectionService {
                         return;
                 }
 
-                throw new UnauthorizedException(
-                                "Role tidak memiliki izin untuk membuat atau mengubah inspection");
+                throw new UnauthorizedException("Role tidak memiliki izin untuk membuat atau mengubah inspection");
         }
 
         private void validateInspectionAccess(User user, Inspection inspection) {
                 if (!canAccessInspection(user, inspection)) {
-                        throw new AccessDeniedException(
-                                        "Anda tidak memiliki akses ke data inspection ini");
+                        throw new AccessDeniedException("Anda tidak memiliki akses ke data inspection ini");
                 }
         }
 

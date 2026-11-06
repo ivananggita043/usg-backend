@@ -31,5 +31,5 @@ public class LoginResponse {
 
     private Instant updatedAt;
 
-    private List<String> lineIds;
+    private List<LineResponse> lines;
 }

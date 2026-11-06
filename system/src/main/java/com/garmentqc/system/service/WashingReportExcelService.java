@@ -41,8 +41,7 @@ public class WashingReportExcelService {
         private static final String BULK = "BULK";
         private static final String REPAIR = "REPAIR";
 
-        private static final DateTimeFormatter DATE_FORMAT = DateTimeFormatter.ofPattern("dd MMMM yyyy",
-                        Locale.ENGLISH);
+        private static final DateTimeFormatter DATE_FORMAT = DateTimeFormatter.ofPattern("dd MMMM yyyy",  Locale.ENGLISH);
         private static final int LABEL_COLUMN = 0;
 
         private final InspectionRepository inspectionRepository;

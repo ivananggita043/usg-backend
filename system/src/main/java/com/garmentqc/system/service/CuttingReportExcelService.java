@@ -148,9 +148,7 @@ public class CuttingReportExcelService {
                                         setNumber(row, QTY_INSPECT_COL, detail.getQuantityInspect(), numberStyle);
                                         setNumber(row, QTY_DEFECT_COL, detail.getQuantityDefect(), numberStyle);
 
-                                        setPercentage(row, PERCENTAGE_COL, detail.getDefectPercentage(),
-                                                        percentageStyle);
-
+                                        setPercentage(row, PERCENTAGE_COL, detail.getDefectPercentage(), percentageStyle);
                                         setText(row, OPERATOR_COL, detail.getOperatorName(), textStyle);
                                         setText(row, DETAIL_DEFECT_COL, detail.getDefectTypeName(), textStyle);
 

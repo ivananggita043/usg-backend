@@ -127,16 +127,12 @@ public class WashingPeriodReportExcelService {
         validateBuyerExists(buyerFilter);
         validateStyleExists(styleFilter, buyerFilter);
 
-        if (grouping == ReportGroupingType.BUYERWISE
-                && "ALL".equalsIgnoreCase(buyerFilter)) {
-            throw new BadRequestException(
-                    "Untuk laporan BUYERWISE, pilih satu buyer terlebih dahulu.");
+        if (grouping == ReportGroupingType.BUYERWISE && "ALL".equalsIgnoreCase(buyerFilter)) {
+            throw new BadRequestException("Untuk laporan BUYERWISE, pilih satu buyer terlebih dahulu.");
         }
 
-        if (grouping == ReportGroupingType.STYLEWISE
-                && "ALL".equalsIgnoreCase(styleFilter)) {
-            throw new BadRequestException(
-                    "Untuk laporan STYLEWISE, pilih satu style terlebih dahulu.");
+        if (grouping == ReportGroupingType.STYLEWISE && "ALL".equalsIgnoreCase(styleFilter)) {
+            throw new BadRequestException("Untuk laporan STYLEWISE, pilih satu style terlebih dahulu.");
         }
 
         Instant startInstant = start.atStartOfDay(ZONE).toInstant();
@@ -293,15 +289,11 @@ public class WashingPeriodReportExcelService {
                     topRow, dateRow, LABEL_COLUMN, LABEL_COLUMN));
 
             if (dateCount > 1) {
-                sheet.addMergedRegion(new CellRangeAddress(
-                        topRow, topRow, 1, dateCount));
+                sheet.addMergedRegion(new CellRangeAddress(topRow, topRow, 1, dateCount));
             }
 
-            sheet.addMergedRegion(new CellRangeAddress(
-                    topRow, dateRow, totalColumn, totalColumn));
-
-            sheet.addMergedRegion(new CellRangeAddress(
-                    topRow, dateRow, percentColumn, percentColumn));
+            sheet.addMergedRegion(new CellRangeAddress(topRow, dateRow, totalColumn, totalColumn));
+            sheet.addMergedRegion(new CellRangeAddress(topRow, dateRow, percentColumn, percentColumn));
 
             Map<LocalDate, DayData> dailyData = new LinkedHashMap<>();
 
@@ -566,8 +558,7 @@ public class WashingPeriodReportExcelService {
         }
 
         if (groupingType == ReportGroupingType.LINEWISE) {
-            throw new BadRequestException(
-                    "Laporan Washing tidak mendukung grouping LINEWISE.");
+            throw new BadRequestException("Laporan Washing tidak mendukung grouping LINEWISE.");
         }
 
         return groupingType;
@@ -677,8 +668,7 @@ public class WashingPeriodReportExcelService {
 
         if (!exists) {
             throw new BadRequestException(
-                    "Style '" + style + "' tidak ditemukan untuk buyer '"
-                            + buyer + "'.");
+                    "Style '" + style + "' tidak ditemukan untuk buyer '" + buyer + "'.");
         }
     }
 

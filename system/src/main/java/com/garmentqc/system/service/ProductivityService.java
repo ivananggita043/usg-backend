@@ -45,10 +45,7 @@ public class ProductivityService {
         private final InspectionRepository inspectionRepository;
         private final SectionProductivityTargetRepository targetRepository;
 
-        public DailyProductivityResponse getDailyProductivity(
-                        String username,
-                        LocalDate date) {
-
+        public DailyProductivityResponse getDailyProductivity(String username, LocalDate date) {
                 User user = getUser(username);
 
                 if (user.getSection() == null) {
@@ -57,14 +54,12 @@ public class ProductivityService {
 
                 Attendance attendance = attendanceRepository
                                 .findByUser_IdAndAttendanceDate(user.getId(), date)
-                                .orElseThrow(() -> new ResourceNotFoundException(
-                                                "Data absensi tidak ditemukan."));
+                                .orElseThrow(() -> new ResourceNotFoundException("Data absensi tidak ditemukan."));
 
                 validateAttendance(attendance);
 
                 if (attendance.getCheckOutAt() == null) {
-                        throw new BadRequestException(
-                                        "Produktivitas harian tersedia setelah check-out.");
+                        throw new BadRequestException("Produktivitas harian tersedia setelah check-out.");
                 }
 
                 int targetPerHour = getTargetPerHour(user);
@@ -90,10 +85,8 @@ public class ProductivityService {
 
                 int totalInspected = inspections.stream()
                                 .filter(i -> i.getCreatedAt() != null)
-                                .filter(i -> !i.getCreatedAt().isBefore(
-                                                attendance.getCheckInAt()))
-                                .filter(i -> !i.getCreatedAt().isAfter(
-                                                attendance.getCheckOutAt()))
+                                .filter(i -> !i.getCreatedAt().isBefore(attendance.getCheckInAt()))
+                                .filter(i -> !i.getCreatedAt().isAfter(attendance.getCheckOutAt()))
                                 .mapToInt(i -> i.getInspectQuantity() != null
                                                 ? i.getInspectQuantity()
                                                 : 0)
@@ -125,32 +118,23 @@ public class ProductivityService {
                 return new DailyProductivityResponse(summary, hourly);
         }
 
-        public ProductivitySummaryResponse getLiveProductivitySummary(
-                        String username) {
-
+        public ProductivitySummaryResponse getLiveProductivitySummary(String username) {
                 return getLiveProductivityResult(username).summary();
         }
 
-        public List<HourlyProductivityResponse> getLiveHourlyProductivity(
-                        String username) {
-
+        public List<HourlyProductivityResponse> getLiveHourlyProductivity(String username) {
                 return getLiveProductivityResult(username).hourly();
         }
 
         public DailyProductivityResponse getLiveProductivity(String username) {
-
                 LiveProductivityResult result = getLiveProductivityResult(username);
-
                 return new DailyProductivityResponse(
                                 result.summary(),
                                 result.hourly());
         }
 
-        private LiveProductivityResult getLiveProductivityResult(
-                        String username) {
-
+        private LiveProductivityResult getLiveProductivityResult(String username) {
                 User user = getUser(username);
-
                 if (user.getSection() == null) {
                         throw new BadRequestException("User belum memiliki section.");
                 }
@@ -215,19 +199,12 @@ public class ProductivityService {
                 return new LiveProductivityResult(summary, calculation.hourly());
         }
 
-        private LiveCalculation calculateLiveHourlyProductivity(
-                        Attendance attendance,
-                        List<Inspection> inspections,
-                        int targetPerHour,
-                        Instant completedUntil,
-                        Instant now) {
-
+        private LiveCalculation calculateLiveHourlyProductivity(Attendance attendance, List<Inspection> inspections,
+                        int targetPerHour, Instant completedUntil, Instant now) {
                 Map<Instant, Integer> inspectedByHour = groupInspectionsByHour(attendance, inspections, now);
-
                 List<HourlyProductivityResponse> result = new ArrayList<>();
 
                 Instant checkIn = attendance.getCheckInAt();
-
                 Instant currentHour = checkIn
                                 .atZone(ZONE)
                                 .truncatedTo(ChronoUnit.HOURS)
@@ -237,8 +214,7 @@ public class ProductivityService {
                 int totalEffectiveMinutes = 0;
                 double totalTarget = 0;
 
-                while (!currentHour.plus(1, ChronoUnit.HOURS)
-                                .isAfter(completedUntil)) {
+                while (!currentHour.plus(1, ChronoUnit.HOURS).isAfter(completedUntil)) {
 
                         Instant nextHour = currentHour.plus(1, ChronoUnit.HOURS);
 
@@ -262,8 +238,7 @@ public class ProductivityService {
 
                         if (effectiveMinutes > 0) {
 
-                                double hourlyTarget = targetPerHour
-                                                * (effectiveMinutes / 60.0);
+                                double hourlyTarget = targetPerHour * (effectiveMinutes / 60.0);
 
                                 int inspected = inspectedByHour.getOrDefault(
                                                 currentHour,
@@ -296,12 +271,8 @@ public class ProductivityService {
                                 totalTarget);
         }
 
-        private List<HourlyProductivityResponse> calculateDailyHourlyProductivity(
-                        Attendance attendance,
-                        List<Inspection> inspections,
-                        int targetPerHour,
-                        int targetEffectiveMinutes) {
-
+        private List<HourlyProductivityResponse> calculateDailyHourlyProductivity(Attendance attendance,
+                        List<Inspection> inspections, int targetPerHour, int targetEffectiveMinutes) {
                 Map<Instant, Integer> inspectedByHour = groupInspectionsByHour(attendance, inspections);
 
                 List<HourlyProductivityResponse> result = new ArrayList<>();
@@ -390,37 +361,30 @@ public class ProductivityService {
                 return result;
         }
 
-        private Map<Instant, Integer> groupInspectionsByHour(
-                        Attendance attendance,
-                        List<Inspection> inspections,
+        private Map<Instant, Integer> groupInspectionsByHour(Attendance attendance, List<Inspection> inspections,
                         Instant now) {
-
                 Map<Instant, Integer> inspectedByHour = new TreeMap<>();
 
                 for (Inspection inspection : inspections) {
 
                         Instant createdAt = inspection.getCreatedAt();
 
-                        if (createdAt == null
-                                        || createdAt.isBefore(attendance.getCheckInAt())
+                        if (createdAt == null || createdAt.isBefore(attendance.getCheckInAt())
                                         || createdAt.isAfter(now)) {
                                 continue;
                         }
 
-                        if (attendance.getCheckOutAt() != null
-                                        && createdAt.isAfter(attendance.getCheckOutAt())) {
+                        if (attendance.getCheckOutAt() != null && createdAt.isAfter(attendance.getCheckOutAt())) {
                                 continue;
                         }
 
                         InspectionSlot slot = parseInspectionSlot(inspection);
 
-                        if (slot == null
-                                        || !slot.end().isAfter(attendance.getCheckInAt())) {
+                        if (slot == null || !slot.end().isAfter(attendance.getCheckInAt())) {
                                 continue;
                         }
 
-                        if (attendance.getCheckOutAt() != null
-                                        && slot.start().isAfter(attendance.getCheckOutAt())) {
+                        if (attendance.getCheckOutAt() != null && slot.start().isAfter(attendance.getCheckOutAt())) {
                                 continue;
                         }
 
@@ -437,9 +401,7 @@ public class ProductivityService {
                 return inspectedByHour;
         }
 
-        private Map<Instant, Integer> groupInspectionsByHour(
-                        Attendance attendance,
-                        List<Inspection> inspections) {
+        private Map<Instant, Integer> groupInspectionsByHour(Attendance attendance, List<Inspection> inspections) {
 
                 Instant cutoff = attendance.getCheckOutAt() != null
                                 ? attendance.getCheckOutAt()
@@ -452,18 +414,14 @@ public class ProductivityService {
         }
 
         private InspectionSlot parseInspectionSlot(Inspection inspection) {
-
                 String timeSlot = inspection.getInspectionTimeSlot();
 
-                if (timeSlot == null
-                                || timeSlot.isBlank()
-                                || inspection.getCreatedAt() == null) {
+                if (timeSlot == null || timeSlot.isBlank() || inspection.getCreatedAt() == null) {
                         return null;
                 }
 
                 try {
                         String[] parts = timeSlot.split("\\s*-\\s*");
-
                         if (parts.length != 2) {
                                 return null;
                         }
@@ -475,13 +433,8 @@ public class ProductivityService {
                         LocalTime startTime = LocalTime.parse(parts[0].trim());
                         LocalTime endTime = LocalTime.parse(parts[1].trim());
 
-                        LocalDateTime startDateTime = LocalDateTime.of(
-                                        inspectionDate,
-                                        startTime);
-
-                        LocalDateTime endDateTime = LocalDateTime.of(
-                                        inspectionDate,
-                                        endTime);
+                        LocalDateTime startDateTime = LocalDateTime.of(inspectionDate, startTime);
+                        LocalDateTime endDateTime = LocalDateTime.of(inspectionDate, endTime);
 
                         if (!endDateTime.isAfter(startDateTime)) {
                                 endDateTime = endDateTime.plusDays(1);
@@ -510,25 +463,18 @@ public class ProductivityService {
         }
 
         private User getUser(String username) {
-
                 return userRepository.findByUsername(username)
-                                .orElseThrow(() -> new ResourceNotFoundException(
-                                                "User tidak ditemukan."));
+                                .orElseThrow(() -> new ResourceNotFoundException("User tidak ditemukan."));
         }
 
         private int getTargetPerHour(User user) {
-
                 SectionProductivityTarget targetConfig = targetRepository.findBySectionAndActiveTrue(user.getSection())
-                                .orElseThrow(() -> new ResourceNotFoundException(
-                                                "Target produktivitas section belum dikonfigurasi."));
+                                .orElseThrow(() -> new ResourceNotFoundException("Target produktivitas section belum dikonfigurasi."));
 
                 return targetConfig.getTargetPerHour();
         }
 
-        private List<Inspection> getDailyInspections(
-                        User user,
-                        LocalDate date) {
-
+        private List<Inspection> getDailyInspections(User user, LocalDate date) {
                 Instant startOfDay = date
                                 .atStartOfDay(ZONE)
                                 .toInstant();
@@ -545,27 +491,16 @@ public class ProductivityService {
         }
 
         private void validateAttendance(Attendance attendance) {
-
                 if (attendance.getCheckInAt() == null) {
-                        throw new BadRequestException(
-                                        "Data check-in tidak ditemukan.");
+                        throw new BadRequestException("Data check-in tidak ditemukan.");
                 }
 
-                if (attendance.getCheckOutAt() != null
-                                && !attendance.getCheckOutAt()
-                                                .isAfter(attendance.getCheckInAt())) {
-
-                        throw new BadRequestException(
-                                        "Waktu check-out tidak valid.");
+                if (attendance.getCheckOutAt() != null && !attendance.getCheckOutAt().isAfter(attendance.getCheckInAt())) {
+                        throw new BadRequestException("Waktu check-out tidak valid.");
                 }
         }
 
-        private long calculateOverlapMinutes(
-                        Instant start,
-                        Instant end,
-                        Instant breakStart,
-                        Instant breakEnd) {
-
+        private long calculateOverlapMinutes(Instant start, Instant end, Instant breakStart, Instant breakEnd) {
                 if (breakStart == null || breakEnd == null) {
                         return 0;
                 }
@@ -587,10 +522,7 @@ public class ProductivityService {
                                 overlapEnd);
         }
 
-        private double calculateRate(
-                        double inspected,
-                        double target) {
-
+        private double calculateRate(double inspected, double target) {
                 if (target <= 0) {
                         return 0;
                 }
@@ -602,20 +534,17 @@ public class ProductivityService {
                 return Math.round(value * 100.0) / 100.0;
         }
 
-        private record InspectionSlot(
-                        Instant start,
-                        Instant end) {
+        private record InspectionSlot(Instant start, Instant end) {
+
         }
 
-        private record LiveCalculation(
-                        List<HourlyProductivityResponse> hourly,
-                        int totalInspected,
-                        int effectiveMinutes,
-                        double totalTarget) {
+        private record LiveCalculation(List<HourlyProductivityResponse> hourly, int totalInspected,
+                        int effectiveMinutes, double totalTarget) {
+
         }
 
-        private record LiveProductivityResult(
-                        ProductivitySummaryResponse summary,
+        private record LiveProductivityResult(ProductivitySummaryResponse summary,
                         List<HourlyProductivityResponse> hourly) {
+
         }
 }

@@ -310,8 +310,7 @@ public class UserService {
                 }
 
                 return userRepository.findByUsername(username)
-                                .orElseThrow(() -> new ResourceNotFoundException(
-                                                "Data user yang login tidak ditemukan"));
+                                .orElseThrow(() -> new ResourceNotFoundException("Data user yang login tidak ditemukan"));
         }
 
         private void validateUserAccess(User currentUser, User targetUser) {

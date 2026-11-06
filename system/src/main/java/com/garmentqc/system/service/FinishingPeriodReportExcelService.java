@@ -74,8 +74,7 @@ public class FinishingPeriodReportExcelService {
                         String style,
                         User currentUser) throws IOException {
                 if (date == null) {
-                        throw new BadRequestException(
-                                        "Tanggal laporan wajib diisi.");
+                        throw new BadRequestException("Tanggal laporan wajib diisi.");
                 }
 
                 LocalDate start = date.with(
@@ -93,9 +92,7 @@ public class FinishingPeriodReportExcelService {
                                 "WEEKLY");
         }
 
-        public byte[] exportMonthlyFinishingExcel(
-                        int month,
-                        int year,
+        public byte[] exportMonthlyFinishingExcel(int month, int year,
                         ReportGroupingType groupingType,
                         String buyer,
                         String style,
@@ -106,8 +103,7 @@ public class FinishingPeriodReportExcelService {
                 try {
                         period = YearMonth.of(year, month);
                 } catch (java.time.DateTimeException ex) {
-                        throw new BadRequestException(
-                                        "Bulan atau tahun laporan tidak valid.");
+                        throw new BadRequestException("Bulan atau tahun laporan tidak valid.");
                 }
 
                 return exportPeriod(
@@ -133,10 +129,8 @@ public class FinishingPeriodReportExcelService {
                                 currentUser,
                                 FINISHING);
 
-                if (section == null
-                                || !FINISHING.equalsIgnoreCase(section)) {
-                        throw new UnauthorizedException(
-                                        "Tidak memiliki akses laporan Finishing.");
+                if (section == null || !FINISHING.equalsIgnoreCase(section)) {
+                        throw new UnauthorizedException("Tidak memiliki akses laporan Finishing.");
                 }
 
                 ReportGroupingType groupingType = normalizeGroupingType(groupingTypeValue);
@@ -147,16 +141,12 @@ public class FinishingPeriodReportExcelService {
                 validateBuyerExists(buyerFilter);
                 validateStyleExists(styleFilter, buyerFilter);
 
-                if (groupingType == ReportGroupingType.BUYERWISE
-                                && ALL.equalsIgnoreCase(buyerFilter)) {
-                        throw new BadRequestException(
-                                        "Untuk laporan BUYERWISE, pilih satu buyer terlebih dahulu.");
+                if (groupingType == ReportGroupingType.BUYERWISE && ALL.equalsIgnoreCase(buyerFilter)) {
+                        throw new BadRequestException("Untuk laporan BUYERWISE, pilih satu buyer terlebih dahulu.");
                 }
 
-                if (groupingType == ReportGroupingType.STYLEWISE
-                                && ALL.equalsIgnoreCase(styleFilter)) {
-                        throw new BadRequestException(
-                                        "Untuk laporan STYLEWISE, pilih satu style terlebih dahulu.");
+                if (groupingType == ReportGroupingType.STYLEWISE && ALL.equalsIgnoreCase(styleFilter)) {
+                        throw new BadRequestException("Untuk laporan STYLEWISE, pilih satu style terlebih dahulu.");
                 }
 
                 Instant startInstant = start.atStartOfDay(ZONE).toInstant();
@@ -166,25 +156,14 @@ public class FinishingPeriodReportExcelService {
                                 .toInstant();
 
                 List<Inspection> inspections = inspectionRepository
-                                .findByCreatedAtGreaterThanEqualAndCreatedAtLessThan(
-                                                startInstant,
-                                                endExclusive)
+                                .findByCreatedAtGreaterThanEqualAndCreatedAtLessThan(startInstant, endExclusive)
                                 .stream()
                                 .filter(i -> i.getCreatedAt() != null)
-                                .filter(i -> i.getLine() != null
-                                                && i.getLine().getSection() != null
-                                                && FINISHING.equalsIgnoreCase(
-                                                                i.getLine().getSection().name()))
+                                .filter(i -> i.getLine() != null && i.getLine().getSection() != null && FINISHING.equalsIgnoreCase(i.getLine().getSection().name()))
                                 .filter(i -> canViewInspection(i, currentUser))
-                                .filter(i -> matches(
-                                                buyerFilter,
-                                                i.getBuyerName()))
-                                .filter(i -> matches(
-                                                styleFilter,
-                                                i.getStyleCode()))
-                                .sorted(
-                                                Comparator.comparing(
-                                                                Inspection::getCreatedAt))
+                                .filter(i -> matches(buyerFilter, i.getBuyerName()))
+                                .filter(i -> matches(styleFilter, i.getStyleCode()))
+                                .sorted(Comparator.comparing(Inspection::getCreatedAt))
                                 .toList();
 
                 List<LocalDate> dates = new ArrayList<>();

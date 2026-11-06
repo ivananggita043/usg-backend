@@ -182,8 +182,7 @@ public class PackingReportExcelService {
 
             setCell(totalRow, col, "", styles.total);
 
-            sheet.addMergedRegion(
-                    new CellRangeAddress(rowIndex, rowIndex, 0, 3));
+            sheet.addMergedRegion(new CellRangeAddress(rowIndex, rowIndex, 0, 3));
 
             sheet.setColumnWidth(0, 7 * 256);
             sheet.setColumnWidth(1, 16 * 256);

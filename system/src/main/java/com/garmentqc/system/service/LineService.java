@@ -64,8 +64,7 @@ public class LineService {
         Line line = findLine(id);
 
         if (userLineRepository.existsByLine(line)) {
-            throw new BadRequestException(
-                    "Line masih digunakan oleh user QC. " + "Nonaktifkan line jika sudah tidak digunakan.");
+            throw new BadRequestException("Line masih digunakan oleh user QC. " + "Nonaktifkan line jika sudah tidak digunakan.");
         }
 
         lineRepository.delete(line);
@@ -78,8 +77,7 @@ public class LineService {
 
     private void validateAdminSection(User currentUser) {
         if (currentUser.getSection() == null) {
-            throw new BadRequestException(
-                    "Admin belum memiliki section");
+            throw new BadRequestException("Admin belum memiliki section");
         }
     }
 
@@ -134,9 +132,7 @@ public class LineService {
     }
 
     @Transactional
-    public Line updateLineStatusForAdmin(
-            String id, boolean active, User currentUser) {
-
+    public Line updateLineStatusForAdmin(String id, boolean active, User currentUser) {
         Line line = findLineForAdmin(id, currentUser);
 
         line.setActive(active);

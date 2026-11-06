@@ -115,9 +115,7 @@ public class SewingReportExcelService {
         List<Line> sewingLines = lineRepository.findAll().stream()
                 .filter(l -> l.getSection() != null)
                 .filter(l -> SEWING.equals(l.getSection().name()))
-                .sorted(Comparator.comparing(
-                        Line::getName,
-                        Comparator.nullsLast(NATURAL_ORDER)))
+                .sorted(Comparator.comparing(Line::getName, Comparator.nullsLast(NATURAL_ORDER)))
                 .collect(Collectors.toList());
 
         Map<String, LineData> lineDataMap = new LinkedHashMap<>();

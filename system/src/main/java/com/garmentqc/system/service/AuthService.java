@@ -11,6 +11,7 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.stereotype.Service;
 
+import com.garmentqc.system.dto.LineResponse;
 import com.garmentqc.system.dto.LoginRequest;
 import com.garmentqc.system.dto.LoginResponse;
 import com.garmentqc.system.model.User;
@@ -63,11 +64,15 @@ public class AuthService {
                 }
 
                 String token = jwtService.generateToken(user);
-                List<String> lineIds = userLineRepository
+
+                List<LineResponse> lines = userLineRepository
                                 .findByUser(user)
                                 .stream()
                                 .map(UserLine::getLine)
-                                .map(line -> line.getId())
+                                .map(line -> LineResponse.builder()
+                                                .id(line.getId())
+                                                .name(line.getName())
+                                                .build())
                                 .toList();
 
                 return LoginResponse.builder()
@@ -80,7 +85,7 @@ public class AuthService {
                                 .active(user.isActive())
                                 .createdAt(user.getCreatedAt())
                                 .updatedAt(user.getUpdatedAt())
-                                .lineIds(lineIds)
+                                .lines(lines)
                                 .build();
         }
 }

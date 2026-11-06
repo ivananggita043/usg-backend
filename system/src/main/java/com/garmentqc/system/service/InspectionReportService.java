@@ -34,7 +34,6 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class InspectionReportService {
-
         private static final ZoneId ZONE_ID = ZoneId.of("Asia/Jakarta");
 
         private static final Set<String> ALLOWED_SECTIONS = Set.of(
@@ -295,8 +294,7 @@ public class InspectionReportService {
                                 lineResults,
                                 defectResults,
                                 timeSlotResults,
-                                washingTypeResults
-                                );
+                                washingTypeResults);
         }
 
         private InspectionGroupedReportResponse generateGroupedReport(String reportType, LocalDate startDate,
@@ -320,8 +318,7 @@ public class InspectionReportService {
 
                         String sectionName = line.getSection().name();
 
-                        if (normalizedSection != null
-                                        && !normalizedSection.equals(sectionName)) {
+                        if (normalizedSection != null && !normalizedSection.equals(sectionName)) {
                                 continue;
                         }
 
@@ -353,7 +350,6 @@ public class InspectionReportService {
                 }
 
                 List<InspectionGroupedReportResponse.GroupSummary> summaries = new ArrayList<>();
-
                 for (GroupAccumulator group : groups.values()) {
                         summaries.add(
                                         new InspectionGroupedReportResponse.GroupSummary(
@@ -377,13 +373,9 @@ public class InspectionReportService {
                                 summaries);
         }
 
-        private boolean canViewInspection(
-                        Inspection inspection,
-                        User currentUser) {
-
+        private boolean canViewInspection(Inspection inspection, User currentUser) {
                 if (currentUser == null || currentUser.getRole() == null) {
-                        throw new AccessDeniedException(
-                                        "User tidak memiliki akses");
+                        throw new AccessDeniedException("User tidak memiliki akses");
                 }
 
                 String role = currentUser.getRole().name();
@@ -399,8 +391,7 @@ public class InspectionReportService {
                                                         .equals(inspection.getLine().getSection());
                 }
 
-                throw new AccessDeniedException(
-                                "User/QC tidak diizinkan mengakses laporan");
+                throw new AccessDeniedException("User/QC tidak diizinkan mengakses laporan");
         }
 
         private LocalDate getMonthStart(int year, int month) {
@@ -421,9 +412,7 @@ public class InspectionReportService {
                                 .atStartOfDay(ZONE_ID)
                                 .toInstant();
 
-                return inspectionRepository
-                                .findByCreatedAtGreaterThanEqualAndCreatedAtLessThan(
-                                                start, endExclusive);
+                return inspectionRepository.findByCreatedAtGreaterThanEqualAndCreatedAtLessThan(start, endExclusive);
         }
 
         private List<InspectionDefect> safeDefects(Inspection inspection) {
@@ -445,8 +434,7 @@ public class InspectionReportService {
                         return null;
                 }
                 if (!ALLOWED_SECTIONS.contains(normalized)) {
-                        throw new BadRequestException(
-                                        "Section harus SEWING, FINISHING, WASHING, PACKING, atau ALL");
+                        throw new BadRequestException("Section harus SEWING, FINISHING, WASHING, PACKING, atau ALL");
                 }
                 return normalized;
         }
@@ -526,8 +514,7 @@ public class InspectionReportService {
 
         private List<InspectionReportResponse.TimeSlotSummary> buildTimeSlotSummaries(List<Inspection> inspections) {
                 Map<String, List<Inspection>> groupedByTimeSlot = inspections.stream()
-                                .filter(i -> i.getInspectionTimeSlot() != null
-                                                && !i.getInspectionTimeSlot().isBlank())
+                                .filter(i -> i.getInspectionTimeSlot() != null && !i.getInspectionTimeSlot().isBlank())
                                 .collect(Collectors.groupingBy(
                                                 Inspection::getInspectionTimeSlot,
                                                 TreeMap::new,
@@ -567,7 +554,6 @@ public class InspectionReportService {
 
         private List<InspectionReportResponse.WashingTypeSummary> buildWashingTypeSummaries(
                         List<Inspection> inspections) {
-
                 Map<String, List<Inspection>> grouped = inspections.stream()
                                 .filter(i -> i.getLine() != null
                                                 && i.getLine().getSection() != null
