@@ -62,6 +62,7 @@ public class InspectionService {
         private static final String SUPER_ADMIN = "SUPER_ADMIN";
         private static final String ADMIN = "ADMIN";
         private static final String USER = "USER";
+        private static final String VISITOR = "VISITOR";
 
         private static final ZoneId ZONE = ZoneId.of("Asia/Jakarta");
 
@@ -273,8 +274,7 @@ public class InspectionService {
                 Inspection inspection = findInspection(id);
 
                 User currentUser = getCurrentUser();
-
-                validateInspectionAccess(currentUser, inspection);
+                validateInspectionReadAccess(currentUser, inspection);
 
                 return toResponse(inspection);
         }
@@ -297,8 +297,7 @@ public class InspectionService {
                 }
 
                 return inspectionRepository.findAll()
-                                .stream()
-                                .filter(inspection -> canAccessInspection(currentUser, inspection))
+                                .stream().filter(inspection -> canReadInspection(currentUser, inspection))
                                 .filter(inspection -> {
 
                                         if (selectedSection == null) {
@@ -393,6 +392,20 @@ public class InspectionService {
                                                 selected,
                                                 safePageable);
                         }
+
+                } else if (VISITOR.equals(role)) {
+
+                        if (selectedSection == null) {
+                                Page<Inspection> inspectionPage = inspectionRepository.findAll(safePageable);
+
+                                return inspectionPage.map(this::toResponse);
+                        }
+
+                        Section selected = Section.valueOf(selectedSection);
+
+                        idPage = inspectionRepository.findIdsByLine_Section(
+                                        selected,
+                                        safePageable);
 
                 } else {
                         throw new UnauthorizedException(
@@ -788,6 +801,25 @@ public class InspectionService {
                         default:
                                 throw new BadRequestException("Section '" + section + "' tidak didukung");
                 }
+        }
+
+        private void validateInspectionReadAccess(User user, Inspection inspection) {
+                if (!canReadInspection(user, inspection)) {
+                        throw new AccessDeniedException(
+                                        "Anda tidak memiliki akses untuk melihat data inspection ini");
+                }
+        }
+
+        private boolean canReadInspection(User user, Inspection inspection) {
+                if (user == null || inspection == null) {
+                        return false;
+                }
+
+                if (VISITOR.equals(user.getRole().name())) {
+                        return true;
+                }
+
+                return canAccessInspection(user, inspection);
         }
 
         private void applyRequestFields(

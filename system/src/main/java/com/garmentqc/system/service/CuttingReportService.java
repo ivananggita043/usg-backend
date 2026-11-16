@@ -371,18 +371,16 @@ public class CuttingReportService {
                                 || authentication instanceof AnonymousAuthenticationToken
                                 || !(authentication.getPrincipal() instanceof User currentUser)) {
 
-                        throw new UnauthorizedException(
-                                        "Autentikasi diperlukan");
+                        throw new UnauthorizedException("Autentikasi diperlukan");
                 }
 
                 if (currentUser.getRole() == null) {
-                        throw new UnauthorizedException(
-                                        "Role pengguna tidak valid");
+                        throw new UnauthorizedException("Role pengguna tidak valid");
                 }
 
                 String role = currentUser.getRole().name();
 
-                if ("SUPER_ADMIN".equals(role)) {
+                if ("SUPER_ADMIN".equals(role) || "VISITOR".equals(role)) {
                         return;
                 }
 

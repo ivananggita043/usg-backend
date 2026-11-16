@@ -226,7 +226,7 @@ public class InspectionReportService {
 
                 String role = currentUser.getRole().name();
 
-                if ("SUPER_ADMIN".equals(role)) {
+                if ("SUPER_ADMIN".equals(role) || "VISITOR".equals(role)) {
                         return normalizeSection(requestedSection);
                 }
 
@@ -239,7 +239,8 @@ public class InspectionReportService {
                         return currentUser.getSection().name();
                 }
 
-                throw new AccessDeniedException("Hanya Admin dan Super Admin yang dapat mengakses laporan");
+                throw new AccessDeniedException(
+                                "Hanya Admin, Super Admin, dan Visitor yang dapat mengakses laporan");
         }
 
         private InspectionReportResponse generateReport(String reportType, LocalDate startDate, LocalDate endDate,
@@ -497,7 +498,8 @@ public class InspectionReportService {
                 }
 
                 String role = currentUser.getRole().name();
-                if ("SUPER_ADMIN".equals(role)) {
+
+                if ("SUPER_ADMIN".equals(role) || "VISITOR".equals(role)) {
                         return true;
                 }
 
@@ -509,7 +511,8 @@ public class InspectionReportService {
                                                         inspection.getLine().getSection());
                 }
 
-                throw new AccessDeniedException("User/QC tidak diizinkan mengakses laporan");
+                throw new AccessDeniedException(
+                                "User/QC tidak diizinkan mengakses laporan");
         }
 
         private boolean matchesLine(Inspection inspection, String lineId) {

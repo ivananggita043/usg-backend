@@ -61,7 +61,8 @@ public class UserService {
                         validateAdminSection(currentUser);
                         users = userRepository.findBySection(currentUser.getSection());
                 } else {
-                        throw new BadRequestException("Anda tidak memiliki akses untuk melihat daftar user");
+                        throw new BadRequestException(
+                                        "Anda tidak memiliki akses untuk melihat daftar user");
                 }
 
                 return users.stream()
@@ -111,16 +112,21 @@ public class UserService {
 
                 String username = request.getUsername().trim();
                 String nama = request.getNama().trim();
-                String nik = request.getNik().trim();
+
+                String nik = request.getNik() == null || request.getNik().isBlank()
+                                ? null
+                                : request.getNik().trim();
+
+                Role role = request.getRole();
 
                 if (userRepository.existsByUsername(username)) {
                         throw new BadRequestException("Username sudah digunakan");
                 }
 
-                Role role = request.getRole();
-
-                if (currentUser.getRole() == Role.ADMIN && role == Role.SUPER_ADMIN) {
-                        throw new BadRequestException("ADMIN tidak dapat membuat SUPER ADMIN");
+                if (currentUser.getRole() == Role.ADMIN
+                                && (role == Role.SUPER_ADMIN || role == Role.VISITOR)) {
+                        throw new BadRequestException(
+                                        "ADMIN tidak memiliki izin untuk membuat role tersebut");
                 }
 
                 User user = new User();
@@ -146,7 +152,8 @@ public class UserService {
                                 section = request.getSection();
 
                                 if (section == null) {
-                                        throw new BadRequestException("Section wajib diisi untuk ADMIN");
+                                        throw new BadRequestException(
+                                                        "Section wajib diisi untuk ADMIN");
                                 }
                         }
 
@@ -156,7 +163,8 @@ public class UserService {
                         lines = getLinesFromRequest(request.getLineIds());
 
                         if (lines.size() != 1) {
-                                throw new BadRequestException("Setiap QC harus memiliki tepat satu line aktif");
+                                throw new BadRequestException(
+                                                "Setiap QC harus memiliki tepat satu line aktif");
                         }
 
                         validateActiveLines(lines);
@@ -164,11 +172,24 @@ public class UserService {
                         validateAdminLines(currentUser, lines);
 
                         Section lineSection = lines.get(0).getSection();
-                        if (request.getSection() != null && request.getSection() != lineSection) {
-                                throw new BadRequestException("Section tidak sesuai dengan section line");
+
+                        if (request.getSection() != null
+                                        && request.getSection() != lineSection) {
+                                throw new BadRequestException(
+                                                "Section tidak sesuai dengan section line");
                         }
 
                         user.setSection(lineSection);
+
+                } else if (role == Role.VISITOR) {
+                        if (currentUser.getRole() != Role.SUPER_ADMIN) {
+                                throw new BadRequestException(
+                                                "Hanya SUPER ADMIN yang dapat membuat VISITOR");
+                        }
+
+                        user.setNik(null);
+                        user.setSection(null);
+                        lines = List.of();
 
                 } else {
                         throw new BadRequestException("Role tidak valid");
@@ -182,7 +203,10 @@ public class UserService {
         }
 
         @Transactional
-        public CreateUserResponse updateUser(String id, CreateUserRequest request) {
+        public CreateUserResponse updateUser(
+                        String id,
+                        CreateUserRequest request) {
+
                 validateId(id);
                 validateUpdateRequest(request);
 
@@ -195,24 +219,29 @@ public class UserService {
                 Role role = request.getRole();
 
                 if (currentUser.getRole() == Role.ADMIN) {
-                        if (role == Role.SUPER_ADMIN) {
-                                throw new BadRequestException("ADMIN tidak dapat mengubah user menjadi SUPER ADMIN");
+                        if (role == Role.SUPER_ADMIN || role == Role.VISITOR) {
+                                throw new BadRequestException(
+                                                "ADMIN tidak memiliki izin untuk menetapkan role tersebut");
                         }
 
-                        if (request.getSection() != null && request.getSection() != currentUser.getSection()) {
-                                throw new BadRequestException("ADMIN hanya dapat mengelola user pada section-nya");
+                        if (request.getSection() != null
+                                        && request.getSection() != currentUser.getSection()) {
+                                throw new BadRequestException(
+                                                "ADMIN hanya dapat mengelola user pada section-nya");
                         }
                 }
 
                 if (currentUser.getId().equals(user.getId())
                                 && currentUser.getRole() == Role.SUPER_ADMIN
                                 && role != Role.SUPER_ADMIN) {
-                        throw new BadRequestException("Super Admin tidak dapat mengubah role akunnya sendiri");
+                        throw new BadRequestException(
+                                        "Super Admin tidak dapat mengubah role akunnya sendiri");
                 }
 
                 String username = request.getUsername().trim();
 
-                if (!user.getUsername().equals(username) && userRepository.existsByUsername(username)) {
+                if (!user.getUsername().equals(username)
+                                && userRepository.existsByUsername(username)) {
                         throw new BadRequestException("Username sudah digunakan");
                 }
 
@@ -220,10 +249,16 @@ public class UserService {
 
                 user.setNama(request.getNama().trim());
                 user.setUsername(username);
-                user.setNik(request.getNik().trim());
+
+                String nik = request.getNik() == null || request.getNik().isBlank()
+                                ? null
+                                : request.getNik().trim();
+
+                user.setNik(nik);
                 user.setRole(role);
 
-                if (request.getPassword() != null && !request.getPassword().isBlank()) {
+                if (request.getPassword() != null
+                                && !request.getPassword().isBlank()) {
                         user.setPassword(passwordEncoder.encode(request.getPassword()));
                 }
 
@@ -242,7 +277,8 @@ public class UserService {
                                 section = request.getSection();
 
                                 if (section == null) {
-                                        throw new BadRequestException("Section wajib diisi untuk ADMIN");
+                                        throw new BadRequestException(
+                                                        "Section wajib diisi untuk ADMIN");
                                 }
                         }
 
@@ -252,7 +288,8 @@ public class UserService {
                         lines = getLinesFromRequest(request.getLineIds());
 
                         if (lines.size() != 1) {
-                                throw new BadRequestException("Setiap QC harus memiliki tepat satu line aktif");
+                                throw new BadRequestException(
+                                                "Setiap QC harus memiliki tepat satu line aktif");
                         }
 
                         validateActiveLines(lines);
@@ -261,18 +298,31 @@ public class UserService {
 
                         Section lineSection = lines.get(0).getSection();
 
-                        if (request.getSection() != null && request.getSection() != lineSection) {
-                                throw new BadRequestException("Section tidak sesuai dengan section line");
+                        if (request.getSection() != null
+                                        && request.getSection() != lineSection) {
+                                throw new BadRequestException(
+                                                "Section tidak sesuai dengan section line");
                         }
 
                         user.setSection(lineSection);
+
+                } else if (role == Role.VISITOR) {
+                        if (currentUser.getRole() != Role.SUPER_ADMIN) {
+                                throw new BadRequestException(
+                                                "Hanya SUPER ADMIN yang dapat mengubah user menjadi VISITOR");
+                        }
+
+                        user.setNik(null);
+                        user.setSection(null);
+                        lines = List.of();
 
                 } else {
                         throw new BadRequestException("Role tidak valid");
                 }
 
                 boolean lineChanged = role == Role.USER
-                                && (oldLines.size() != 1 || !oldLines.get(0).getId().equals(lines.get(0).getId()));
+                                && (oldLines.size() != 1
+                                                || !oldLines.get(0).getId().equals(lines.get(0).getId()));
 
                 User savedUser = userRepository.save(user);
 
@@ -299,7 +349,8 @@ public class UserService {
                 validateUserAccess(currentUser, user);
 
                 if (currentUser.getId().equals(user.getId())) {
-                        throw new BadRequestException("Anda tidak dapat mengubah status akun sendiri");
+                        throw new BadRequestException(
+                                        "Anda tidak dapat mengubah status akun sendiri");
                 }
 
                 user.setActive(active);
@@ -320,7 +371,8 @@ public class UserService {
                 validateUserAccess(currentUser, user);
 
                 if (currentUser.getId().equals(user.getId())) {
-                        throw new BadRequestException("Anda tidak dapat menghapus akun sendiri");
+                        throw new BadRequestException(
+                                        "Anda tidak dapat menghapus akun sendiri");
                 }
 
                 userLineRepository.deleteByUser(user);
@@ -341,11 +393,15 @@ public class UserService {
 
                 requireText(request.getNama(), "Nama wajib diisi");
                 requireText(request.getUsername(), "Username wajib diisi");
-                requireText(request.getNik(), "NIK wajib diisi");
-                requireText(request.getPassword(), "Password wajib diisi");
 
                 if (request.getRole() == null) {
                         throw new BadRequestException("Role wajib dipilih");
+                }
+
+                requireText(request.getPassword(), "Password wajib diisi");
+
+                if (request.getRole() != Role.VISITOR) {
+                        requireText(request.getNik(), "NIK wajib diisi");
                 }
         }
 
@@ -356,10 +412,13 @@ public class UserService {
 
                 requireText(request.getNama(), "Nama wajib diisi");
                 requireText(request.getUsername(), "Username wajib diisi");
-                requireText(request.getNik(), "NIK wajib diisi");
 
                 if (request.getRole() == null) {
                         throw new BadRequestException("Role wajib dipilih");
+                }
+
+                if (request.getRole() != Role.VISITOR) {
+                        requireText(request.getNik(), "NIK wajib diisi");
                 }
         }
 
@@ -525,7 +584,8 @@ public class UserService {
                                         .anyMatch(line -> line.getSection() != currentUser.getSection());
 
                         if (differentSection) {
-                                throw new BadRequestException("Anda hanya dapat menggunakan line dari section Anda");
+                                throw new BadRequestException(
+                                                "Anda hanya dapat menggunakan line dari section Anda");
                         }
                 }
         }
@@ -542,7 +602,8 @@ public class UserService {
 
         private User findUser(String id) {
                 return userRepository.findById(id)
-                                .orElseThrow(() -> new ResourceNotFoundException("User tidak ditemukan"));
+                                .orElseThrow(() -> new ResourceNotFoundException(
+                                                "User tidak ditemukan"));
         }
 
         private CreateUserResponse toResponse(User user, List<Line> lines) {

@@ -511,7 +511,7 @@ public class InspectionDashboardService {
 
                 String role = currentUser.getRole().name();
 
-                if ("SUPER_ADMIN".equals(role)) {
+                if ("SUPER_ADMIN".equals(role) || "VISITOR".equals(role)) {
                         return normalizeSection(requestedSection);
                 }
 
@@ -526,7 +526,7 @@ public class InspectionDashboardService {
                 }
 
                 throw new AccessDeniedException(
-                                "Hanya Admin dan Super Admin yang dapat mengakses dashboard");
+                                "Anda tidak memiliki akses ke dashboard");
         }
 
         private String normalizeSection(String section) {

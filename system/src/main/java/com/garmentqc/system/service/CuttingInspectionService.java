@@ -458,7 +458,7 @@ public class CuttingInspectionService {
 
                 String role = user.getRole().name();
 
-                if ("SUPER_ADMIN".equals(role)) {
+                if ("SUPER_ADMIN".equals(role) || "VISITOR".equals(role)) {
                         return;
                 }
 
@@ -475,18 +475,29 @@ public class CuttingInspectionService {
                 validateCuttingSection(user);
 
                 if (!"USER".equals(user.getRole().name())) {
-                        throw new UnauthorizedException("Hanya USER section CUTTING yang boleh membuat laporan");
+                        throw new UnauthorizedException(
+                                        "Hanya USER section CUTTING yang boleh membuat laporan");
                 }
         }
 
-        private void validateCanAccessInspection(CuttingInspection inspection, User currentUser) {
+        private void validateCanAccessInspection(
+                        CuttingInspection inspection,
+                        User currentUser) {
+
                 validateCuttingSection(currentUser);
 
-                if ("USER".equals(currentUser.getRole().name())) {
+                String role = currentUser.getRole().name();
+
+                if ("VISITOR".equals(role) || "SUPER_ADMIN".equals(role)) {
+                        return;
+                }
+
+                if ("USER".equals(role)) {
 
                         User submittedBy = inspection.getSubmittedBy();
 
-                        if (submittedBy == null || !submittedBy.getId().equals(currentUser.getId())) {
+                        if (submittedBy == null
+                                        || !submittedBy.getId().equals(currentUser.getId())) {
                                 throw new UnauthorizedException(
                                                 "Anda hanya dapat mengakses laporan yang anda input sendiri");
                         }
