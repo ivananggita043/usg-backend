@@ -54,7 +54,6 @@ public class CuttingReportExcelAdminController {
     @GetMapping("/weekly/export")
     public ResponseEntity<byte[]> exportWeekly(
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) throws IOException {
-
         validateCuttingExportAccess();
 
         CuttingReportResponse report = reportService.getWeeklyReport(date);

@@ -3,6 +3,7 @@ package com.garmentqc.system.service;
 import java.awt.Color;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.time.DateTimeException;
 import java.time.DayOfWeek;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -10,6 +11,7 @@ import java.time.YearMonth;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.TemporalAdjusters;
+
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
@@ -37,6 +39,7 @@ import org.apache.poi.xssf.usermodel.XSSFCellStyle;
 import org.apache.poi.xssf.usermodel.XSSFColor;
 import org.apache.poi.xssf.usermodel.XSSFFont;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
+
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -91,7 +94,7 @@ public class WashingPeriodReportExcelService {
 
         try {
             period = YearMonth.of(year, month);
-        } catch (java.time.DateTimeException ex) {
+        } catch (DateTimeException ex) {
             throw new ResourceNotFoundException("Bulan atau tahun laporan tidak valid.");
         }
 
@@ -105,10 +108,7 @@ public class WashingPeriodReportExcelService {
                 "MONTHLY");
     }
 
-    private byte[] exportPeriod(
-            LocalDate start,
-            LocalDate end,
-            ReportGroupingType groupingType,
+    private byte[] exportPeriod(LocalDate start, LocalDate end, ReportGroupingType groupingType,
             String buyerValue,
             String styleValue,
             User currentUser,
@@ -189,8 +189,7 @@ public class WashingPeriodReportExcelService {
         List<Inspection> inspections = washingType == null
                 ? allInspections
                 : allInspections.stream()
-                        .filter(i -> washingType.equalsIgnoreCase(
-                                i.getWashingType().name()))
+                        .filter(i -> washingType.equalsIgnoreCase(i.getWashingType().name()))
                         .toList();
 
         String titleSuffix = washingType == null
@@ -246,7 +245,6 @@ public class WashingPeriodReportExcelService {
                         DayData::getFinishing));
 
         for (Map.Entry<String, List<Inspection>> groupEntry : groups.entrySet()) {
-
             List<Inspection> groupInspections = groupEntry.getValue();
 
             String heading;
@@ -641,7 +639,6 @@ public class WashingPeriodReportExcelService {
     }
 
     private void validateBuyerExists(String buyer) {
-
         if ("ALL".equalsIgnoreCase(buyer)) {
             return;
         }
@@ -656,7 +653,6 @@ public class WashingPeriodReportExcelService {
     }
 
     private void validateStyleExists(String style, String buyer) {
-
         if ("ALL".equalsIgnoreCase(style)) {
             return;
         }
@@ -841,14 +837,8 @@ public class WashingPeriodReportExcelService {
             percentTotal.setDataFormat(format.getFormat("0.00%"));
         }
 
-        private CellStyle create(
-                Workbook workbook,
-                Color background,
-                short fontColor,
-                int fontSize,
-                boolean bold,
+        private CellStyle create(Workbook workbook, Color background, short fontColor, int fontSize, boolean bold,
                 HorizontalAlignment alignment) {
-
             XSSFCellStyle style = (XSSFCellStyle) workbook.createCellStyle();
 
             style.setFillForegroundColor(new XSSFColor(background, new DefaultIndexedColorMap()));

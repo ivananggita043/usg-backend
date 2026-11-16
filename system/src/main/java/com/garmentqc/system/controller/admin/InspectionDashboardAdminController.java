@@ -30,7 +30,7 @@ public class InspectionDashboardAdminController {
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
             @AuthenticationPrincipal User currentUser) {
-
+                
         return ResponseEntity.ok(
                 dashboardService.getDashboardSummary(
                         startDate,

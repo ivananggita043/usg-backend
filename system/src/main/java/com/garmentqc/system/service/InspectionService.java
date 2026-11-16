@@ -1,6 +1,7 @@
 
 package com.garmentqc.system.service;
 
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -12,6 +13,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 
 import org.springframework.data.domain.Page;
@@ -112,6 +114,8 @@ public class InspectionService {
 
                 validateInspectionTimeSlot(section, inspectionTimeSlot);
 
+                validateDuplicateTimeSlot(line, section, inspectionTimeSlot);
+
                 int inspectedQuantity = validateInspectedQuantity(request.getInspectedQuantity());
 
                 int transferQuantity = validateTransferQuantity(
@@ -170,7 +174,9 @@ public class InspectionService {
         }
 
         private void validateInspectionTimeSlot(String section, String timeSlot) {
-                if (!"SEWING".equals(section) && !"WASHING".equals(section)) {
+                if (!"SEWING".equals(section)
+                                && !"FINISHING".equals(section)
+                                && !"WASHING".equals(section)) {
                         return;
                 }
 
@@ -221,6 +227,44 @@ public class InspectionService {
                 } catch (DateTimeParseException e) {
                         throw new BadRequestException(
                                         "Format inspection time slot tidak valid. " + "Gunakan format HH:mm-HH:mm.");
+                }
+        }
+
+        private void validateDuplicateTimeSlot(
+                        Line line,
+                        String section,
+                        String timeSlot) {
+
+                if (!"SEWING".equals(section)
+                                && !"FINISHING".equals(section)
+                                && !"WASHING".equals(section)) {
+                        return;
+                }
+
+                LocalDate today = LocalDate.now(ZONE);
+
+                Instant startOfDay = today
+                                .atStartOfDay(ZONE)
+                                .toInstant();
+
+                Instant endOfDay = today
+                                .plusDays(1)
+                                .atStartOfDay(ZONE)
+                                .toInstant();
+
+                boolean alreadyExists = inspectionRepository
+                                .existsByLine_IdAndInspectionTimeSlotAndCreatedAtGreaterThanEqualAndCreatedAtLessThan(
+                                                line.getId(),
+                                                timeSlot,
+                                                startOfDay,
+                                                endOfDay);
+
+                if (alreadyExists) {
+                        throw new BadRequestException(
+                                        "Inspeksi untuk line " + line.getName()
+                                                        + " pada slot " + timeSlot
+                                                        + " hari ini sudah pernah diinput. "
+                                                        + "Silakan gunakan fitur update untuk mengubah data.");
                 }
         }
 
@@ -374,7 +418,7 @@ public class InspectionService {
                 List<InspectionResponse> responses = idPage.getContent()
                                 .stream()
                                 .map(inspectionMap::get)
-                                .filter(java.util.Objects::nonNull)
+                                .filter(Objects::nonNull)
                                 .map(this::toResponse)
                                 .toList();
 
@@ -420,6 +464,8 @@ public class InspectionService {
                                 process,
                                 washingType,
                                 inspectionTimeSlot);
+
+                validateInspectionTimeSlot(section, inspectionTimeSlot);
 
                 int inspectedQuantity = validateInspectedQuantity(request.getInspectedQuantity());
 
@@ -709,6 +755,11 @@ public class InspectionService {
                                 if (handfeel != null || grade != null || washingType != null) {
                                         throw new BadRequestException(
                                                         "Section FINISHING tidak menggunakan handfeel, grade, atau washingType");
+                                }
+
+                                if (inspectionTimeSlot == null) {
+                                        throw new BadRequestException(
+                                                        "Field 'inspectionTimeSlot' wajib diisi untuk section FINISHING");
                                 }
 
                                 if (process != null

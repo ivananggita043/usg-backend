@@ -12,8 +12,7 @@ import com.garmentqc.system.model.CuttingInspection;
 
 public interface CuttingInspectionRepository extends JpaRepository<CuttingInspection, String> {
 
-    List<CuttingInspection> findByCreatedAtGreaterThanEqualAndCreatedAtLessThan(
-            Instant start, Instant end);
+    List<CuttingInspection> findByCreatedAtGreaterThanEqualAndCreatedAtLessThan(Instant start, Instant end);
 
     List<CuttingInspection> findBySubmittedById(String submittedById);
 

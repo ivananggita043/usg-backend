@@ -21,37 +21,29 @@ import lombok.RequiredArgsConstructor;
 @PreAuthorize("hasRole('ADMIN')")
 public class ProductivityManagementAdminController {
 
-    private final ProductivityService productivityService;
+        private final ProductivityService productivityService;
 
-    @GetMapping("/daily")
-    public DailyProductivityResponse getDaily(
-            Authentication authentication,
-            @PathVariable String userId,
-            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
+        @GetMapping("/daily")
+        public DailyProductivityResponse getDaily(Authentication authentication, @PathVariable String userId,
+                        @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
+                return productivityService.getDailyProductivityForAdmin(
+                                authentication.getName(),
+                                userId,
+                                date);
+        }
 
-        return productivityService.getDailyProductivityForAdmin(
-                authentication.getName(),
-                userId,
-                date);
-    }
+        @GetMapping("/live/summary")
+        public ProductivitySummaryResponse getLiveSummary(Authentication authentication, @PathVariable String userId) {
+                return productivityService.getLiveProductivitySummaryForAdmin(
+                                authentication.getName(),
+                                userId);
+        }
 
-    @GetMapping("/live/summary")
-    public ProductivitySummaryResponse getLiveSummary(
-            Authentication authentication,
-            @PathVariable String userId) {
-
-        return productivityService.getLiveProductivitySummaryForAdmin(
-                authentication.getName(),
-                userId);
-    }
-
-    @GetMapping("/live/hourly")
-    public List<HourlyProductivityResponse> getLiveHourly(
-            Authentication authentication,
-            @PathVariable String userId) {
-
-        return productivityService.getLiveHourlyProductivityForAdmin(
-                authentication.getName(),
-                userId);
-    }
+        @GetMapping("/live/hourly")
+        public List<HourlyProductivityResponse> getLiveHourly(Authentication authentication,
+                        @PathVariable String userId) {
+                return productivityService.getLiveHourlyProductivityForAdmin(
+                                authentication.getName(),
+                                userId);
+        }
 }

@@ -27,11 +27,20 @@ public class InspectionReportAdminController {
         private final InspectionReportService reportService;
 
         @GetMapping("/daily")
-        public ResponseEntity<InspectionReportResponse> getDailyReport(
+        public ResponseEntity<InspectionReportResponse> getDailyReportAllLine(
                         @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
                         @AuthenticationPrincipal User currentUser) {
                 return ResponseEntity.ok(
                                 reportService.getDailyReport(date, null, currentUser));
+        }
+
+        @GetMapping("/daily/line")
+        public ResponseEntity<InspectionReportResponse> getDailyReportByLine(
+                        @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
+                        @RequestParam String lineId,
+                        @AuthenticationPrincipal User currentUser) {
+                return ResponseEntity.ok(
+                                reportService.getDailyReportByLine(date, lineId, currentUser));
         }
 
         @GetMapping("/weekly")

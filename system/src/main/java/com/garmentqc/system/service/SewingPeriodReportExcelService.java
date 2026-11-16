@@ -21,6 +21,7 @@ import java.awt.Color;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.math.BigInteger;
+import java.time.DateTimeException;
 import java.time.DayOfWeek;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -111,7 +112,7 @@ public class SewingPeriodReportExcelService {
 
                 try {
                         yearMonth = YearMonth.of(year, month);
-                } catch (java.time.DateTimeException e) {
+                } catch (DateTimeException e) {
                         throw new BadRequestException("Bulan atau tahun laporan tidak valid.");
                 }
 

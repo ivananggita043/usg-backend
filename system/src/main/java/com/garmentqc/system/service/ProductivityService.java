@@ -38,8 +38,6 @@ public class ProductivityService {
 
         private static final ZoneId ZONE = ZoneId.of("Asia/Jakarta");
 
-        private static final int LONG_WORK_THRESHOLD_MINUTES = 10 * 60;
-
         private static final DateTimeFormatter HOUR_FORMATTER = DateTimeFormatter.ofPattern("HH:mm");
 
         private final UserRepository userRepository;
@@ -75,13 +73,13 @@ public class ProductivityService {
                                 attendance.getCheckInAt(),
                                 attendance.getCheckOutAt());
 
-                int breakMinutes = attendanceMinutes > LONG_WORK_THRESHOLD_MINUTES
-                                ? 60
-                                : 30;
+                int breakMinutes = attendance.getBreakMinutes() != null
+                                ? attendance.getBreakMinutes()
+                                : 0;
 
-                int effectiveMinutes = (int) Math.max(
-                                0,
-                                attendanceMinutes - breakMinutes);
+                int effectiveMinutes = attendance.getEffectiveMinutes() != null
+                                ? attendance.getEffectiveMinutes()
+                                : 0;
 
                 int effectiveHours = effectiveMinutes / 60;
 
@@ -323,19 +321,35 @@ public class ProductivityService {
 
                 Instant checkIn = attendance.getCheckInAt();
 
+                // Estimasi durasi kerja sampai waktu sekarang.
+                long elapsedMinutes = ChronoUnit.MINUTES.between(
+                                checkIn,
+                                now);
+
+                // Estimasi istirahat mengikuti aturan AttendanceService.
+                int estimatedBreakMinutes = calculateBreakMinutes(elapsedMinutes);
+
+                int effectiveMinutes = (int) Math.max(
+                                0,
+                                elapsedMinutes - estimatedBreakMinutes);
+
+                // Hanya jam efektif penuh yang memperoleh target.
+                int remainingTargetHours = effectiveMinutes / 60;
+
                 Instant currentHour = checkIn
                                 .atZone(ZONE)
                                 .truncatedTo(ChronoUnit.HOURS)
                                 .toInstant();
 
                 int totalInspected = 0;
-                int totalEffectiveMinutes = 0;
                 double totalTarget = 0;
 
                 while (!currentHour.plus(1, ChronoUnit.HOURS)
                                 .isAfter(completedUntil)) {
 
-                        Instant nextHour = currentHour.plus(1, ChronoUnit.HOURS);
+                        Instant nextHour = currentHour.plus(
+                                        1,
+                                        ChronoUnit.HOURS);
 
                         Instant effectiveStart = currentHour.isAfter(checkIn)
                                         ? currentHour
@@ -345,24 +359,21 @@ public class ProductivityService {
                                         effectiveStart,
                                         nextHour);
 
-                        long breakOverlap = calculateOverlapMinutes(
-                                        effectiveStart,
-                                        nextHour,
-                                        attendance.getBreakStartAt(),
-                                        attendance.getBreakEndAt());
+                        int inspected = inspectedByHour.getOrDefault(
+                                        currentHour,
+                                        0);
 
-                        int effectiveMinutes = (int) Math.max(
-                                        0,
-                                        workingMinutes - breakOverlap);
+                        double hourlyTarget = 0;
 
-                        if (effectiveMinutes > 0) {
+                        // Slot harus benar-benar satu jam penuh.
+                        if (workingMinutes == 60
+                                        && remainingTargetHours > 0) {
 
-                                double hourlyTarget = targetPerHour
-                                                * (effectiveMinutes / 60.0);
+                                hourlyTarget = targetPerHour;
+                                remainingTargetHours--;
+                        }
 
-                                int inspected = inspectedByHour.getOrDefault(
-                                                currentHour,
-                                                0);
+                        if (workingMinutes > 0) {
 
                                 double hourlyRate = calculateRate(
                                                 inspected,
@@ -380,7 +391,6 @@ public class ProductivityService {
 
                                 totalInspected += inspected;
                                 totalTarget += hourlyTarget;
-                                totalEffectiveMinutes += effectiveMinutes;
                         }
 
                         currentHour = nextHour;
@@ -389,7 +399,7 @@ public class ProductivityService {
                 return new LiveCalculation(
                                 result,
                                 totalInspected,
-                                totalEffectiveMinutes,
+                                effectiveMinutes,
                                 totalTarget);
         }
 
@@ -411,8 +421,7 @@ public class ProductivityService {
                                 .truncatedTo(ChronoUnit.HOURS)
                                 .toInstant();
 
-                int accumulatedEffectiveMinutes = 0;
-                int allocatedTargetHours = 0;
+                int remainingTargetHours = targetEffectiveMinutes / 60;
 
                 while (currentHour.isBefore(checkOut)) {
 
@@ -432,41 +441,20 @@ public class ProductivityService {
                                                         overlapStart,
                                                         overlapEnd));
 
-                        long breakOverlap = calculateOverlapMinutes(
-                                        overlapStart,
-                                        overlapEnd,
-                                        attendance.getBreakStartAt(),
-                                        attendance.getBreakEndAt());
-
-                        int effectiveMinutes = (int) Math.max(
-                                        0,
-                                        workingMinutes - breakOverlap);
-
-                        int remainingEffectiveMinutes = Math.max(
-                                        0,
-                                        targetEffectiveMinutes - accumulatedEffectiveMinutes);
-
-                        int allocatedMinutes = Math.min(
-                                        effectiveMinutes,
-                                        remainingEffectiveMinutes);
-
-                        accumulatedEffectiveMinutes += allocatedMinutes;
-
-                        int currentTargetHours = accumulatedEffectiveMinutes / 60;
-
-                        int targetHoursForSlot = currentTargetHours
-                                        - allocatedTargetHours;
-
-                        double hourlyTarget = (double) targetPerHour
-                                        * targetHoursForSlot;
-
-                        allocatedTargetHours = currentTargetHours;
-
                         int inspected = inspectedByHour.getOrDefault(
                                         currentHour,
                                         0);
 
-                        if (effectiveMinutes > 0) {
+                        boolean isFullHour = workingMinutes == 60;
+
+                        double hourlyTarget = 0;
+
+                        if (isFullHour && remainingTargetHours > 0) {
+                                hourlyTarget = targetPerHour;
+                                remainingTargetHours--;
+                        }
+
+                        if (workingMinutes > 0) {
 
                                 double rate = calculateRate(
                                                 inspected,
@@ -487,6 +475,18 @@ public class ProductivityService {
                 }
 
                 return result;
+        }
+
+        private int calculateBreakMinutes(long workingMinutes) {
+                if (workingMinutes >= 600) {
+                        return 60;
+                }
+
+                if (workingMinutes >= 510) {
+                        return 30;
+                }
+
+                return 0;
         }
 
         private Map<Instant, Integer> groupInspectionsByHour(
@@ -596,7 +596,7 @@ public class ProductivityService {
                         return null;
                 }
         }
-        
+
         private String formatTimeSlot(Instant start, Instant end) {
 
                 return start.atZone(ZONE).format(HOUR_FORMATTER)

@@ -1,6 +1,7 @@
 package com.garmentqc.system.controller.admin.excel;
 
 import java.io.IOException;
+import java.time.DateTimeException;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.YearMonth;
@@ -109,7 +110,7 @@ public class SewingReportExcelAdminController {
 
                 try {
                         yearMonth = YearMonth.of(year, month);
-                } catch (java.time.DateTimeException ex) {
+                } catch (DateTimeException ex) {
                         throw new BadRequestException(
                                         "Bulan atau tahun laporan tidak valid.");
                 }

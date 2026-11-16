@@ -51,7 +51,6 @@ public class LineAdminController {
     public ResponseEntity<Line> updateLineStatus(@PathVariable String id, @RequestParam boolean active,
             @AuthenticationPrincipal User currentUser) {
         return ResponseEntity.ok(
-                lineService.updateLineStatusForAdmin(
-                        id, active, currentUser));
+                lineService.updateLineStatusForAdmin(id, active, currentUser));
     }
 }

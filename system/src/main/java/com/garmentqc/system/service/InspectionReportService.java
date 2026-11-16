@@ -1,6 +1,8 @@
 
 package com.garmentqc.system.service;
 
+import java.time.DateTimeException;
+import java.time.DayOfWeek;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
@@ -27,6 +29,7 @@ import com.garmentqc.system.model.InspectionDefect;
 import com.garmentqc.system.model.Line;
 import com.garmentqc.system.model.User;
 import com.garmentqc.system.repository.InspectionRepository;
+import com.garmentqc.system.repository.LineRepository;
 
 import lombok.RequiredArgsConstructor;
 
@@ -34,6 +37,7 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class InspectionReportService {
+
         private static final ZoneId ZONE_ID = ZoneId.of("Asia/Jakarta");
 
         private static final Set<String> ALLOWED_SECTIONS = Set.of(
@@ -43,39 +47,96 @@ public class InspectionReportService {
                         "PACKING");
 
         private final InspectionRepository inspectionRepository;
+        private final LineRepository lineRepository;
 
         public InspectionReportResponse getDailyReport(LocalDate date, String section, User currentUser) {
                 validateDate(date);
+
                 String authorizedSection = resolveSectionForUser(currentUser, section);
-                return generateReport("DAILY", date, date, authorizedSection, currentUser);
+
+                return generateReport(
+                                "DAILY",
+                                date,
+                                date,
+                                authorizedSection,
+                                currentUser);
+        }
+
+        public InspectionReportResponse getDailyReportByLine(LocalDate date, String lineId, User currentUser) {
+                validateDate(date);
+
+                if (lineId == null || lineId.isBlank()) {
+                        throw new BadRequestException("Line ID wajib diisi");
+                }
+
+                String authorizedSection = resolveSectionForUser(currentUser, null);
+
+                Line line = lineRepository.findById(lineId)
+                                .orElseThrow(() -> new BadRequestException("Line tidak ditemukan"));
+
+                if (line.getSection() == null) {
+                        throw new BadRequestException("Line belum memiliki section");
+                }
+
+                if (authorizedSection != null && !authorizedSection.equals(line.getSection().name())) {
+                        throw new AccessDeniedException("Anda tidak memiliki akses ke line tersebut");
+                }
+
+                return generateReport(
+                                "DAILY",
+                                date,
+                                date,
+                                line.getSection().name(),
+                                currentUser,
+                                lineId);
         }
 
         public InspectionReportResponse getWeeklyReport(LocalDate date, String section, User currentUser) {
                 validateDate(date);
+
                 LocalDate startDate = date.with(java.time.DayOfWeek.FRIDAY);
                 LocalDate endDate = startDate.plusDays(6);
+
                 String authorizedSection = resolveSectionForUser(currentUser, section);
-                return generateReport("WEEKLY", startDate, endDate, authorizedSection, currentUser);
+
+                return generateReport(
+                                "WEEKLY",
+                                startDate,
+                                endDate,
+                                authorizedSection,
+                                currentUser);
         }
 
         public InspectionReportResponse getMonthlyReport(int year, int month, String section, User currentUser) {
                 LocalDate startDate = getMonthStart(year, month);
                 LocalDate endDate = startDate.withDayOfMonth(startDate.lengthOfMonth());
+
                 String authorizedSection = resolveSectionForUser(currentUser, section);
-                return generateReport("MONTHLY", startDate, endDate, authorizedSection, currentUser);
+
+                return generateReport(
+                                "MONTHLY",
+                                startDate,
+                                endDate,
+                                authorizedSection,
+                                currentUser);
         }
 
         public InspectionGroupedReportResponse getDailyBuyerReport(LocalDate date, String section, User currentUser) {
                 validateDate(date);
+
                 String authorizedSection = resolveSectionForUser(currentUser, section);
+
                 return generateGroupedReport("DAILY", date, date, authorizedSection, true, currentUser);
         }
 
         public InspectionGroupedReportResponse getWeeklyBuyerReport(LocalDate date, String section, User currentUser) {
                 validateDate(date);
+
                 LocalDate startDate = date.with(java.time.DayOfWeek.FRIDAY);
                 LocalDate endDate = startDate.plusDays(6);
+
                 String authorizedSection = resolveSectionForUser(currentUser, section);
+
                 return generateGroupedReport("WEEKLY", startDate, endDate, authorizedSection, true, currentUser);
         }
 
@@ -83,21 +144,28 @@ public class InspectionReportService {
                         User currentUser) {
                 LocalDate startDate = getMonthStart(year, month);
                 LocalDate endDate = startDate.withDayOfMonth(startDate.lengthOfMonth());
+
                 String authorizedSection = resolveSectionForUser(currentUser, section);
+
                 return generateGroupedReport("MONTHLY", startDate, endDate, authorizedSection, true, currentUser);
         }
 
         public InspectionGroupedReportResponse getDailyStyleReport(LocalDate date, String section, User currentUser) {
                 validateDate(date);
+
                 String authorizedSection = resolveSectionForUser(currentUser, section);
+
                 return generateGroupedReport("DAILY", date, date, authorizedSection, false, currentUser);
         }
 
         public InspectionGroupedReportResponse getWeeklyStyleReport(LocalDate date, String section, User currentUser) {
                 validateDate(date);
-                LocalDate startDate = date.with(java.time.DayOfWeek.FRIDAY);
+
+                LocalDate startDate = date.with(DayOfWeek.FRIDAY);
                 LocalDate endDate = startDate.plusDays(6);
+
                 String authorizedSection = resolveSectionForUser(currentUser, section);
+
                 return generateGroupedReport("WEEKLY", startDate, endDate, authorizedSection, false, currentUser);
         }
 
@@ -105,21 +173,19 @@ public class InspectionReportService {
                         User currentUser) {
                 LocalDate startDate = getMonthStart(year, month);
                 LocalDate endDate = startDate.withDayOfMonth(startDate.lengthOfMonth());
+
                 String authorizedSection = resolveSectionForUser(currentUser, section);
+
                 return generateGroupedReport("MONTHLY", startDate, endDate, authorizedSection, false, currentUser);
         }
 
-        public InspectionGroupedReportResponse getBuyerReport(
-                        LocalDate startDate,
-                        LocalDate endDate,
-                        String section,
+        public InspectionGroupedReportResponse getBuyerReport(LocalDate startDate, LocalDate endDate, String section,
                         User currentUser) {
                 validateDate(startDate);
                 validateDate(endDate);
 
                 if (startDate.isAfter(endDate)) {
-                        throw new BadRequestException(
-                                        "Start date tidak boleh setelah end date");
+                        throw new BadRequestException("Start date tidak boleh setelah end date");
                 }
 
                 String authorizedSection = resolveSectionForUser(currentUser, section);
@@ -133,17 +199,13 @@ public class InspectionReportService {
                                 currentUser);
         }
 
-        public InspectionGroupedReportResponse getBuyerStyleReport(
-                        LocalDate startDate,
-                        LocalDate endDate,
-                        String section,
-                        User currentUser) {
+        public InspectionGroupedReportResponse getBuyerStyleReport(LocalDate startDate, LocalDate endDate,
+                        String section, User currentUser) {
                 validateDate(startDate);
                 validateDate(endDate);
 
                 if (startDate.isAfter(endDate)) {
-                        throw new BadRequestException(
-                                        "Start date tidak boleh setelah end date");
+                        throw new BadRequestException("Start date tidak boleh setelah end date");
                 }
 
                 String authorizedSection = resolveSectionForUser(currentUser, section);
@@ -163,11 +225,13 @@ public class InspectionReportService {
                 }
 
                 String role = currentUser.getRole().name();
+
                 if ("SUPER_ADMIN".equals(role)) {
                         return normalizeSection(requestedSection);
                 }
 
                 if ("ADMIN".equals(role)) {
+
                         if (currentUser.getSection() == null) {
                                 throw new AccessDeniedException("Admin belum memiliki section");
                         }
@@ -175,13 +239,24 @@ public class InspectionReportService {
                         return currentUser.getSection().name();
                 }
 
-                throw new AccessDeniedException(
-                                "Hanya Admin dan Super Admin yang dapat mengakses laporan");
+                throw new AccessDeniedException("Hanya Admin dan Super Admin yang dapat mengakses laporan");
         }
 
         private InspectionReportResponse generateReport(String reportType, LocalDate startDate, LocalDate endDate,
                         String sectionFilter, User currentUser) {
+                return generateReport(
+                                reportType,
+                                startDate,
+                                endDate,
+                                sectionFilter,
+                                currentUser,
+                                null);
+        }
+
+        private InspectionReportResponse generateReport(String reportType, LocalDate startDate, LocalDate endDate,
+                        String sectionFilter, User currentUser, String lineId) {
                 String normalizedSection = normalizeSection(sectionFilter);
+
                 List<Inspection> inspections = findInspections(startDate, endDate);
 
                 long totalQuantityInspect = 0;
@@ -193,22 +268,23 @@ public class InspectionReportService {
                 Map<String, DefectAccumulator> defectTypes = new LinkedHashMap<>();
 
                 int totalInspections = 0;
-                for (Inspection inspection : inspections) {
 
+                for (Inspection inspection : inspections) {
                         if (!canViewInspection(inspection, currentUser)) {
                                 continue;
                         }
 
                         Line line = inspection.getLine();
-
                         if (line == null || line.getSection() == null) {
                                 continue;
                         }
 
                         String sectionName = line.getSection().name();
+                        if (normalizedSection != null && !normalizedSection.equals(sectionName)) {
+                                continue;
+                        }
 
-                        if (normalizedSection != null
-                                        && !normalizedSection.equals(sectionName)) {
+                        if (!matchesLine(inspection, lineId)) {
                                 continue;
                         }
 
@@ -220,12 +296,14 @@ public class InspectionReportService {
                                         sectionName,
                                         ignored -> new SectionAccumulator());
 
-                        String lineId = line.getId();
+                        String currentLineId = line.getId();
 
                         LineAccumulator lineSummary = lines.computeIfAbsent(
-                                        lineId,
+                                        currentLineId,
                                         ignored -> new LineAccumulator(
-                                                        lineId, line.getName(), sectionName));
+                                                        currentLineId,
+                                                        line.getName(),
+                                                        sectionName));
 
                         totalInspections++;
 
@@ -250,20 +328,19 @@ public class InspectionReportService {
                                 }
 
                                 String typeId = type.getId();
-                                DefectAccumulator defectSummary = defectTypes.computeIfAbsent(
-                                                typeId,
+                                DefectAccumulator defectSummary = defectTypes.computeIfAbsent(typeId,
                                                 ignored -> new DefectAccumulator(
-                                                                typeId, type.getName()));
-
+                                                                typeId,
+                                                                type.getName()));
                                 defectSummary.totalDefects += quantity;
                         }
+
                         section.totalDefects += inspectionDefects;
                         lineSummary.totalDefects += inspectionDefects;
                         totalDefects += inspectionDefects;
                 }
 
                 List<InspectionReportResponse.SectionSummary> sectionResults = new ArrayList<>();
-
                 sections.forEach((name, item) -> sectionResults.add(
                                 new InspectionReportResponse.SectionSummary(
                                                 name,
@@ -303,30 +380,25 @@ public class InspectionReportService {
                                                 second.getTotalDefects(),
                                                 first.getTotalDefects()));
 
+                List<Inspection> filteredInspections = inspections.stream()
+                                .filter(inspection -> canViewInspection(inspection, currentUser))
+                                .filter(inspection -> {
+                                        Line line = inspection.getLine();
+
+                                        return line != null
+                                                        && line.getSection() != null
+                                                        && (normalizedSection == null
+                                                                        || normalizedSection.equals(
+                                                                                        line.getSection().name()));
+                                })
+                                .filter(inspection -> matchesLine(inspection, lineId))
+                                .toList();
+
                 List<InspectionReportResponse.TimeSlotSummary> timeSlotResults = buildTimeSlotSummaries(
-                                inspections.stream()
-                                                .filter(inspection -> canViewInspection(inspection, currentUser))
-                                                .filter(inspection -> inspection.getLine() != null
-                                                                && inspection.getLine().getSection() != null)
-                                                .filter(inspection -> normalizedSection == null
-                                                                || normalizedSection.equals(
-                                                                                inspection.getLine().getSection()
-                                                                                                .name()))
-                                                .toList());
+                                filteredInspections);
 
                 List<InspectionReportResponse.WashingTypeSummary> washingTypeResults = buildWashingTypeSummaries(
-                                inspections.stream()
-                                                .filter(inspection -> canViewInspection(inspection, currentUser))
-                                                .filter(inspection -> {
-                                                        Line line = inspection.getLine();
-                                                        return line != null
-                                                                        && line.getSection() != null
-                                                                        && (normalizedSection == null
-                                                                                        || normalizedSection.equals(
-                                                                                                        line.getSection()
-                                                                                                                        .name()));
-                                                })
-                                                .toList());
+                                filteredInspections);
 
                 return new InspectionReportResponse(
                                 reportType,
@@ -347,31 +419,30 @@ public class InspectionReportService {
 
         private InspectionGroupedReportResponse generateGroupedReport(String reportType, LocalDate startDate,
                         LocalDate endDate, String sectionFilter, boolean buyerWise, User currentUser) {
-
                 String normalizedSection = normalizeSection(sectionFilter);
+
                 List<Inspection> inspections = findInspections(startDate, endDate);
+
                 Map<String, GroupAccumulator> groups = new LinkedHashMap<>();
 
                 for (Inspection inspection : inspections) {
-
                         if (!canViewInspection(inspection, currentUser)) {
                                 continue;
                         }
 
                         Line line = inspection.getLine();
-
                         if (line == null || line.getSection() == null) {
                                 continue;
                         }
 
                         String sectionName = line.getSection().name();
-
                         if (normalizedSection != null && !normalizedSection.equals(sectionName)) {
                                 continue;
                         }
 
                         String buyerName = normalizeText(inspection.getBuyerName());
                         String styleCode = normalizeText(inspection.getStyleCode());
+
                         String key = buyerWise
                                         ? buyerName
                                         : buyerName + "\u0000" + styleCode;
@@ -389,7 +460,6 @@ public class InspectionReportService {
                         }
 
                         group.totalQuantityInspect += valueOrZero(inspection.getInspectQuantity());
-
                         group.totalTransferQuantity += valueOrZero(inspection.getTransferQuantity());
 
                         for (InspectionDefect defect : safeDefects(inspection)) {
@@ -435,17 +505,21 @@ public class InspectionReportService {
                         return currentUser.getSection() != null
                                         && inspection.getLine() != null
                                         && inspection.getLine().getSection() != null
-                                        && currentUser.getSection()
-                                                        .equals(inspection.getLine().getSection());
+                                        && currentUser.getSection().equals(
+                                                        inspection.getLine().getSection());
                 }
 
                 throw new AccessDeniedException("User/QC tidak diizinkan mengakses laporan");
         }
 
+        private boolean matchesLine(Inspection inspection, String lineId) {
+                return lineId == null || (inspection.getLine() != null && lineId.equals(inspection.getLine().getId()));
+        }
+
         private LocalDate getMonthStart(int year, int month) {
                 try {
                         return LocalDate.of(year, month, 1);
-                } catch (java.time.DateTimeException ex) {
+                } catch (DateTimeException ex) {
                         throw new BadRequestException("Tahun atau bulan laporan tidak valid");
                 }
         }
@@ -460,14 +534,16 @@ public class InspectionReportService {
                                 .atStartOfDay(ZONE_ID)
                                 .toInstant();
 
-                return inspectionRepository.findByCreatedAtGreaterThanEqualAndCreatedAtLessThan(start, endExclusive);
+                return inspectionRepository
+                                .findByCreatedAtGreaterThanEqualAndCreatedAtLessThan(
+                                                start,
+                                                endExclusive);
         }
 
         private List<InspectionDefect> safeDefects(Inspection inspection) {
                 if (inspection.getInspectionDefects() == null) {
                         return List.of();
                 }
-
                 return inspection.getInspectionDefects();
         }
 
@@ -481,9 +557,11 @@ public class InspectionReportService {
                 if ("ALL".equals(normalized)) {
                         return null;
                 }
+
                 if (!ALLOWED_SECTIONS.contains(normalized)) {
                         throw new BadRequestException("Section harus SEWING, FINISHING, WASHING, PACKING, atau ALL");
                 }
+
                 return normalized;
         }
 
@@ -505,7 +583,9 @@ public class InspectionReportService {
                 if (quantityInspect <= 0) {
                         return 0.0;
                 }
+
                 double percentage = (double) totalDefects / quantityInspect * 100.0;
+
                 return Math.round(percentage * 100.0) / 100.0;
         }
 
@@ -542,7 +622,11 @@ public class InspectionReportService {
                 private long totalTransferQuantity;
                 private long totalDefects;
 
-                private LineAccumulator(String lineId, String lineName, String section) {
+                private LineAccumulator(
+                                String lineId,
+                                String lineName,
+                                String section) {
+
                         this.lineId = lineId;
                         this.lineName = lineName;
                         this.section = section;
@@ -552,9 +636,13 @@ public class InspectionReportService {
         private static class DefectAccumulator {
                 private final String defectTypeId;
                 private final String defectTypeName;
+
                 private long totalDefects;
 
-                private DefectAccumulator(String defectTypeId, String defectTypeName) {
+                private DefectAccumulator(
+                                String defectTypeId,
+                                String defectTypeName) {
+
                         this.defectTypeId = defectTypeId;
                         this.defectTypeName = defectTypeName;
                 }
@@ -562,7 +650,8 @@ public class InspectionReportService {
 
         private List<InspectionReportResponse.TimeSlotSummary> buildTimeSlotSummaries(List<Inspection> inspections) {
                 Map<String, List<Inspection>> groupedByTimeSlot = inspections.stream()
-                                .filter(i -> i.getInspectionTimeSlot() != null && !i.getInspectionTimeSlot().isBlank())
+                                .filter(i -> i.getInspectionTimeSlot() != null
+                                                && !i.getInspectionTimeSlot().isBlank())
                                 .collect(Collectors.groupingBy(
                                                 Inspection::getInspectionTimeSlot,
                                                 TreeMap::new,
@@ -570,15 +659,19 @@ public class InspectionReportService {
 
                 return groupedByTimeSlot.entrySet().stream()
                                 .map(entry -> {
+
                                         List<Inspection> slotInspections = entry.getValue();
+
                                         long slotTotalInspections = slotInspections.size();
 
                                         long slotTotalQuantityInspect = slotInspections.stream()
-                                                        .mapToLong(i -> valueOrZero(i.getInspectQuantity()))
+                                                        .mapToLong(i -> valueOrZero(
+                                                                        i.getInspectQuantity()))
                                                         .sum();
 
                                         long slotTotalTransferQuantity = slotInspections.stream()
-                                                        .mapToLong(i -> valueOrZero(i.getTransferQuantity()))
+                                                        .mapToLong(i -> valueOrZero(
+                                                                        i.getTransferQuantity()))
                                                         .sum();
 
                                         long slotTotalDefects = slotInspections.stream()
@@ -602,9 +695,12 @@ public class InspectionReportService {
 
         private List<InspectionReportResponse.WashingTypeSummary> buildWashingTypeSummaries(
                         List<Inspection> inspections) {
+
                 Map<String, List<Inspection>> grouped = inspections.stream()
-                                .filter(i -> i.getLine() != null && i.getLine().getSection() != null
-                                                && "WASHING".equals(i.getLine().getSection().name()))
+                                .filter(i -> i.getLine() != null
+                                                && i.getLine().getSection() != null
+                                                && "WASHING".equals(
+                                                                i.getLine().getSection().name()))
                                 .filter(i -> i.getWashingType() != null)
                                 .collect(Collectors.groupingBy(
                                                 i -> i.getWashingType().name(),
@@ -613,16 +709,19 @@ public class InspectionReportService {
 
                 return grouped.entrySet().stream()
                                 .map(entry -> {
+
                                         List<Inspection> items = entry.getValue();
 
                                         long totalInspections = items.size();
 
                                         long totalQuantityInspect = items.stream()
-                                                        .mapToLong(i -> valueOrZero(i.getInspectQuantity()))
+                                                        .mapToLong(i -> valueOrZero(
+                                                                        i.getInspectQuantity()))
                                                         .sum();
 
                                         long totalTransferQuantity = items.stream()
-                                                        .mapToLong(i -> valueOrZero(i.getTransferQuantity()))
+                                                        .mapToLong(i -> valueOrZero(
+                                                                        i.getTransferQuantity()))
                                                         .sum();
 
                                         long totalDefects = items.stream()
@@ -637,9 +736,10 @@ public class InspectionReportService {
                                                         totalTransferQuantity,
                                                         totalDefects,
                                                         totalQuantityInspect - totalDefects,
-                                                        calculatePercentage(totalDefects, totalQuantityInspect));
+                                                        calculatePercentage(
+                                                                        totalDefects,
+                                                                        totalQuantityInspect));
                                 })
                                 .toList();
         }
-
 }

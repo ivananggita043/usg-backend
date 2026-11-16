@@ -90,8 +90,7 @@ public class AttendanceService {
                 }
 
                 if (accuracy <= 0 || accuracy > maxGpsAccuracy) {
-                        throw new BadRequestException(
-                                        "Akurasi GPS tidak memenuhi persyaratan");
+                        throw new BadRequestException("Akurasi GPS tidak memenuhi persyaratan");
                 }
 
                 double distance = calculateDistance(
@@ -101,10 +100,20 @@ public class AttendanceService {
                                 officeLongitude);
 
                 if (distance > radiusMeter) {
-                        throw new BadRequestException(
-                                        "Lokasi di luar radius absensi "
-                                                        + (int) radiusMeter + " meter");
+                        throw new BadRequestException("Lokasi di luar radius absensi " + (int) radiusMeter + " meter");
                 }
+        }
+
+        private int calculateBreakMinutes(long workingMinutes) {
+                if (workingMinutes >= 600) {
+                        return 60;
+                }
+
+                if (workingMinutes >= 510) {
+                        return 30;
+                }
+
+                return 0;
         }
 
         private double calculateDistance(
@@ -150,10 +159,7 @@ public class AttendanceService {
         }
 
         @Transactional
-        public AttendanceResponse checkIn(
-                        String username,
-                        CheckInRequest request) {
-
+        public AttendanceResponse checkIn(String username, CheckInRequest request) {
                 User user = validateAttendanceUser(username);
 
                 LocalDate today = LocalDate.now(ZONE);
@@ -239,23 +245,14 @@ public class AttendanceService {
                 if (checkIn == null || !now.isAfter(checkIn)) {
                         throw new BadRequestException("Waktu check-out tidak valid.");
                 }
-
                 long workingMinutes = ChronoUnit.MINUTES.between(
                                 checkIn,
                                 now);
 
-                int breakMinutes;
+                int breakMinutes = calculateBreakMinutes(workingMinutes);
 
-                if (workingMinutes < 570) {
-                        breakMinutes = 0;
-                } else if (workingMinutes < 600) {
-                        breakMinutes = 30;
-                } else {
-                        breakMinutes = 60;
-                }
-
-                int effectiveMinutes = Math.toIntExact(workingMinutes - breakMinutes);
-                attendance.setCheckOutAt(now);
+                int effectiveMinutes = Math.toIntExact(
+                                workingMinutes - breakMinutes);
 
                 assignmentRepository
                                 .findByAttendance_IdAndEndAtIsNull(attendance.getId())

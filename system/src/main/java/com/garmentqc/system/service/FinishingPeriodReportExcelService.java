@@ -3,6 +3,7 @@ package com.garmentqc.system.service;
 import java.awt.Color;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.time.DateTimeException;
 import java.time.DayOfWeek;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -102,7 +103,7 @@ public class FinishingPeriodReportExcelService {
 
                 try {
                         period = YearMonth.of(year, month);
-                } catch (java.time.DateTimeException ex) {
+                } catch (DateTimeException ex) {
                         throw new BadRequestException("Bulan atau tahun laporan tidak valid.");
                 }
 

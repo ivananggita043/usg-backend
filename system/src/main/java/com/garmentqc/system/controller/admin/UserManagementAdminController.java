@@ -81,19 +81,13 @@ public class UserManagementAdminController {
     }
 
     @GetMapping("/paginated")
-    public ResponseEntity<Page<CreateUserResponse>> getAllUsersPaginated(
-            Authentication authentication,
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size) {
-
+    public ResponseEntity<Page<CreateUserResponse>> getAllUsersPaginated(Authentication authentication, @RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "10") int size) {
         validateAdmin(authentication);
-
         Pageable pageable = PageRequest.of(
                 Math.max(page, 0),
                 Math.min(Math.max(size, 1), 100));
 
-        return ResponseEntity.ok(
-                userService.getAllUsersPaginated(pageable));
+        return ResponseEntity.ok(userService.getAllUsersPaginated(pageable));
     }
 
 }

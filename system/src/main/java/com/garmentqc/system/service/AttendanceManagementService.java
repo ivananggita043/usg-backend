@@ -64,11 +64,7 @@ public class AttendanceManagementService {
     }
 
     @Transactional(readOnly = true)
-    public Page<AttendanceResponse> getAttendancesPaginated(
-            String username,
-            LocalDate date,
-            Pageable pageable) {
-
+    public Page<AttendanceResponse> getAttendancesPaginated(String username, LocalDate date, Pageable pageable) {
         User actor = getAuthorizedUser(username);
 
         LocalDate attendanceDate = date != null
@@ -89,16 +85,11 @@ public class AttendanceManagementService {
     }
 
     @Transactional(readOnly = true)
-    public Page<AttendanceResponse> getAttendancesByUserIdPaginated(
-            String username,
-            String userId,
-            Pageable pageable) {
-
+    public Page<AttendanceResponse> getAttendancesByUserIdPaginated(String username, String userId, Pageable pageable) {
         User actor = getAuthorizedUser(username);
 
         User qc = userRepository.findById(userId)
-                .orElseThrow(() -> new ResourceNotFoundException(
-                        "User QC tidak ditemukan"));
+                .orElseThrow(() -> new ResourceNotFoundException("User QC tidak ditemukan"));
 
         validateQcAccess(qc, actor);
 
@@ -108,11 +99,7 @@ public class AttendanceManagementService {
     }
 
     @Transactional(readOnly = true)
-    public Page<AttendanceResponse> getAttendancesBySectionPaginated(
-            String username,
-            Section section,
-            Pageable pageable) {
-
+    public Page<AttendanceResponse> getAttendancesBySectionPaginated(String username, Section section, Pageable pageable) {
         User actor = getAuthorizedUser(username);
 
         validateRequestedSection(actor, section);

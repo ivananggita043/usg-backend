@@ -29,6 +29,7 @@ import java.time.LocalDate;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
+import java.util.function.Function;
 import java.util.function.ToIntFunction;
 import java.util.stream.Collectors;
 
@@ -282,7 +283,7 @@ public class FinishingReportExcelService {
                         int rowIndex,
                         String label,
                         List<InspectionData> columns,
-                        java.util.function.Function<InspectionData, String> getter,
+                        Function<InspectionData, String> getter,
                         int totalColumn,
                         int percentColumn,
                         Styles styles) {

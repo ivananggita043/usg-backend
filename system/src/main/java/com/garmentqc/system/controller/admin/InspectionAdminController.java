@@ -64,8 +64,7 @@ public class InspectionAdminController {
     }
 
     @GetMapping("/defects/search")
-    public ResponseEntity<List<DefectSearchResponse>> searchDefects(
-            @RequestParam(required = false) String defectAreaId,
+    public ResponseEntity<List<DefectSearchResponse>> searchDefects(@RequestParam(required = false) String defectAreaId,
             @RequestParam(required = false) String keyword) {
         return ResponseEntity.ok(inspectionService.searchDefects(defectAreaId, keyword));
     }
@@ -81,17 +80,10 @@ public class InspectionAdminController {
     }
 
     @GetMapping("/paginated")
-    public ResponseEntity<Page<InspectionResponse>> getAllPaginated(
-            @RequestParam(required = false) String section,
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size) {
-
-        Pageable pageable = PageRequest.of(
-                Math.max(page, 0),
-                Math.min(Math.max(size, 1), 100));
-
-        return ResponseEntity.ok(
-                inspectionService.getAllPaginated(section, pageable));
+    public ResponseEntity<Page<InspectionResponse>> getAllPaginated(@RequestParam(required = false) String section,
+            @RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "10") int size) {
+        Pageable pageable = PageRequest.of(Math.max(page, 0), Math.min(Math.max(size, 1), 100));
+        return ResponseEntity.ok(inspectionService.getAllPaginated(section, pageable));
     }
 
 }

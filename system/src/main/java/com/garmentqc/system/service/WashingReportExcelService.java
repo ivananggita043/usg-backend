@@ -41,7 +41,8 @@ public class WashingReportExcelService {
         private static final String BULK = "BULK";
         private static final String REPAIR = "REPAIR";
 
-        private static final DateTimeFormatter DATE_FORMAT = DateTimeFormatter.ofPattern("dd MMMM yyyy",  Locale.ENGLISH);
+        private static final DateTimeFormatter DATE_FORMAT = DateTimeFormatter.ofPattern("dd MMMM yyyy",
+                        Locale.ENGLISH);
         private static final int LABEL_COLUMN = 0;
 
         private final InspectionRepository inspectionRepository;
@@ -537,7 +538,7 @@ public class WashingReportExcelService {
                                 row, layout.grandTotal(),
                                 grandTotal, styles.total);
 
-           setCell(row, layout.grandTotalPct(), "", styles.total);
+                setCell(row, layout.grandTotalPct(), "", styles.total);
 
                 return rowIndex;
         }
@@ -558,7 +559,7 @@ public class WashingReportExcelService {
 
                 long bulkInspect = 0;
                 long bulkDefect = 0;
-                long repairInspect = 0; 
+                long repairInspect = 0;
                 long repairDefect = 0;
 
                 for (int i = 0; i < bulkColumns.size(); i++) {
