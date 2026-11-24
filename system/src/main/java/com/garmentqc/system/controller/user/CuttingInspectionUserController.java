@@ -34,7 +34,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 
 @RestController
-@RequestMapping("/user/cutting-inspections")
+@RequestMapping("/user/cutting/inspections")
 @RequiredArgsConstructor
 @Validated
 @PreAuthorize("hasRole('USER')")

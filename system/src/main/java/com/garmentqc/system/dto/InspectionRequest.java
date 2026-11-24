@@ -1,3 +1,4 @@
+
 package com.garmentqc.system.dto;
 
 import java.util.ArrayList;
@@ -9,6 +10,7 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -18,13 +20,15 @@ import lombok.Setter;
 @NoArgsConstructor
 public class InspectionRequest {
 
-    @NotBlank
-    private String buyerName;
+    @NotBlank(message = "Buyer wajib dipilih")
+    private String buyerId;
 
-    @NotBlank
+    @NotBlank(message = "Style wajib diisi")
+    @Size(max = 100, message = "Style maksimal 100 karakter")
     private String styleCode;
 
-    @NotBlank
+    @NotBlank(message = "Color name wajib diisi")
+    @Size(max = 100, message = "Color name maksimal 100 karakter")
     private String colorName;
 
     @NotBlank
@@ -54,5 +58,4 @@ public class InspectionRequest {
 
     @Valid
     private List<InspectionDefectRequest> defects = new ArrayList<>();
-
 }

@@ -45,14 +45,9 @@ public class Inspection extends BaseEntity {
     @OneToMany(mappedBy = "inspection", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<InspectionDefect> inspectionDefects = new ArrayList<>();
 
-    @Column(name = "buyer_name", nullable = false, length = 100)
-    private String buyerName;
-
-    @Column(name = "style_code", nullable = false, length = 100)
-    private String styleCode;
-
-    @Column(name = "color_name", nullable = false, length = 100)
-    private String colorName;
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "style_color_id", nullable = false)
+    private StyleColor styleColor;
 
     @Column(name = "inspection_time_slot", length = 20)
     private String inspectionTimeSlot;

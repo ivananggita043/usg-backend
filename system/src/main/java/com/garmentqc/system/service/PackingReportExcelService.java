@@ -3,6 +3,7 @@ package com.garmentqc.system.service;
 import com.garmentqc.system.model.DefectType;
 import com.garmentqc.system.model.Inspection;
 import com.garmentqc.system.model.InspectionDefect;
+import com.garmentqc.system.model.StyleColor;
 import com.garmentqc.system.model.User;
 import com.garmentqc.system.repository.InspectionRepository;
 
@@ -110,13 +111,29 @@ public class PackingReportExcelService {
                 row.setHeightInPoints(20);
                 int col = 0;
 
+                StyleColor styleColor = inspection.getStyleColor();
+
+                String buyerName = "";
+                String styleCode = "";
+                String colorName = "";
+
+                if (styleColor != null) {
+                    colorName = safe(styleColor.getColorName());
+
+                    if (styleColor.getStyle() != null) {
+                        styleCode = safe(styleColor.getStyle().getStyleCode());
+
+                        if (styleColor.getStyle().getBuyer() != null) {
+                            buyerName = safe(styleColor.getStyle().getBuyer().getName());
+                        }
+                    }
+                }
+
                 setCell(row, col++, i + 1, styles.bodyNumber);
-                setCell(row, col++, safe(inspection.getBuyerName()), styles.bodyNumber);
-                setCell(row, col++, safe(inspection.getStyleCode()), styles.bodyNumber);
-                setCell(row, col++, safe(inspection.getColorName()), styles.bodyNumber);
+                setCell(row, col++, buyerName, styles.bodyNumber);
+                setCell(row, col++, styleCode, styles.bodyNumber);
+                setCell(row, col++, colorName, styles.bodyNumber);
                 setCell(row, col++, inspectQty, styles.bodyNumber);
-                setCell(row, col++, goodQty, styles.bodyNumber);
-                setCell(row, col++, totalDefects, styles.bodyNumber);
 
                 double rejectPercentage = inspectQty <= 0
                         ? 0.0
@@ -218,9 +235,9 @@ public class PackingReportExcelService {
     }
 
     private void createHeaders(Sheet sheet, Styles styles, int defectStartCol, int notesCol) {
-        Row row1 = sheet.createRow(HEADER_ROW); 
-        Row row2 = sheet.createRow(HEADER_ROW + 1); 
-        Row row3 = sheet.createRow(HEADER_ROW + 2); 
+        Row row1 = sheet.createRow(HEADER_ROW);
+        Row row2 = sheet.createRow(HEADER_ROW + 1);
+        Row row3 = sheet.createRow(HEADER_ROW + 2);
 
         row1.setHeightInPoints(22);
         row2.setHeightInPoints(34);
@@ -350,8 +367,8 @@ public class PackingReportExcelService {
         private static final XSSFColor TOTAL_BG = rgb(220, 232, 224);
         private static final XSSFColor WHITE = rgb(255, 255, 255);
         private static final XSSFColor BLACK = rgb(0, 0, 0);
-        private static final XSSFColor BORDER = rgb(191, 191, 191);
-        private static final XSSFColor BORDER_LIGHT = rgb(235, 235, 235);
+        private static final XSSFColor BORDER = rgb(128, 128, 128);
+        private static final XSSFColor BORDER_LIGHT = rgb(128, 128, 128);
         private static final XSSFColor TITLE_PASTEL = rgb(168, 200, 178);
         private static final XSSFColor SUBTITLE_PASTEL = rgb(198, 215, 202);
 
@@ -403,7 +420,7 @@ public class PackingReportExcelService {
             style.setRightBorderColor(borderColor);
 
             XSSFFont font = workbook.createFont();
-            font.setFontName("Calibri");
+            font.setFontName("Arial");
             font.setFontHeightInPoints((short) fontSize);
             font.setBold(bold);
             font.setColor(fontColor);

@@ -7,12 +7,15 @@ import jakarta.persistence.FetchType;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 @Entity
-@Table(name = "style_colors")
+@Table(name = "style_colors", uniqueConstraints = {
+        @UniqueConstraint(name = "uk_style_color_name", columnNames = { "style_id", "color_name" })
+})
 @Getter
 @Setter
 @NoArgsConstructor

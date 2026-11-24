@@ -111,7 +111,7 @@ public class CuttingReportExcelService {
 
                         createMergedRow(
                                         sheet, 4, COLUMN_COUNT,
-                                        "REPORT DATE: " + reportDate, periodStyle, 24);
+                                        "DATE: " + reportDate, periodStyle, 24);
 
                         Row headerRow = sheet.createRow(HEADER_ROW_INDEX);
                         headerRow.setHeightInPoints(34);
@@ -148,7 +148,8 @@ public class CuttingReportExcelService {
                                         setNumber(row, QTY_INSPECT_COL, detail.getQuantityInspect(), numberStyle);
                                         setNumber(row, QTY_DEFECT_COL, detail.getQuantityDefect(), numberStyle);
 
-                                        setPercentage(row, PERCENTAGE_COL, detail.getDefectPercentage(), percentageStyle);
+                                        setPercentage(row, PERCENTAGE_COL, detail.getDefectPercentage(),
+                                                        percentageStyle);
                                         setText(row, OPERATOR_COL, detail.getOperatorName(), textStyle);
                                         setText(row, DETAIL_DEFECT_COL, detail.getDefectTypeName(), textStyle);
 
@@ -287,7 +288,7 @@ public class CuttingReportExcelService {
 
                         createMergedRow(
                                         sheet, 4, columnCount,
-                                        "PERIODE: " + report.getStartDate()
+                                        "PERIOD: " + report.getStartDate()
                                                         + " - " + report.getEndDate(),
                                         periodStyle, 24);
 
@@ -702,13 +703,19 @@ public class CuttingReportExcelService {
                 return Math.round(percentage * 100.0) / 100.0;
         }
 
+        private Font createFont(Workbook workbook, boolean bold, int size, short color) {
+                Font font = workbook.createFont();
+                font.setFontName("Arial");
+                font.setBold(bold);
+                font.setFontHeightInPoints((short) size);
+                font.setColor(color);
+                return font;
+        }
+
         private CellStyle createTitleStyle(Workbook workbook) {
                 CellStyle style = createBodyStyle(workbook);
 
-                Font font = workbook.createFont();
-                font.setBold(true);
-                font.setFontHeightInPoints((short) 16);
-                font.setColor(IndexedColors.DARK_BLUE.getIndex());
+                Font font = createFont(workbook, true, 16, IndexedColors.DARK_BLUE.getIndex());
 
                 style.setFont(font);
 
@@ -723,10 +730,7 @@ public class CuttingReportExcelService {
         private CellStyle createSubtitleStyle(Workbook workbook) {
                 CellStyle style = createBodyStyle(workbook);
 
-                Font font = workbook.createFont();
-                font.setBold(true);
-                font.setFontHeightInPoints((short) 10);
-                font.setColor(IndexedColors.DARK_BLUE.getIndex());
+                Font font = createFont(workbook, true, 10, IndexedColors.DARK_BLUE.getIndex());
 
                 style.setFont(font);
                 setFillColor(
@@ -744,10 +748,7 @@ public class CuttingReportExcelService {
         private CellStyle createPeriodStyle(Workbook workbook) {
                 CellStyle style = createBodyStyle(workbook);
 
-                Font font = workbook.createFont();
-                font.setBold(true);
-                font.setFontHeightInPoints((short) 10);
-                font.setColor(IndexedColors.DARK_BLUE.getIndex());
+                Font font = createFont(workbook, true, 10, IndexedColors.DARK_BLUE.getIndex());
 
                 style.setFont(font);
                 setFillColor(style, 238, 243, 238);
@@ -760,10 +761,7 @@ public class CuttingReportExcelService {
         private CellStyle createHeaderStyle(Workbook workbook) {
                 CellStyle style = createBodyStyle(workbook);
 
-                Font font = workbook.createFont();
-                font.setBold(true);
-                font.setFontHeightInPoints((short) 10);
-                font.setColor(IndexedColors.DARK_BLUE.getIndex());
+                Font font = createFont(workbook, true, 10, IndexedColors.DARK_BLUE.getIndex());
 
                 style.setFont(font);
                 setFillColor(style, 220, 230, 239);
@@ -794,6 +792,9 @@ public class CuttingReportExcelService {
                 ((XSSFCellStyle) style).setLeftBorderColor(borderColor);
                 ((XSSFCellStyle) style).setRightBorderColor(borderColor);
 
+                Font bodyFont = createFont(workbook, false, 10, IndexedColors.BLACK.getIndex());
+                style.setFont(bodyFont);
+
                 return style;
         }
 
@@ -818,9 +819,7 @@ public class CuttingReportExcelService {
         private CellStyle createTotalStyle(Workbook workbook) {
                 CellStyle style = createBodyStyle(workbook);
 
-                Font font = workbook.createFont();
-                font.setBold(true);
-                font.setColor(IndexedColors.DARK_BLUE.getIndex());
+                Font font = createFont(workbook, true, 10, IndexedColors.DARK_BLUE.getIndex());
 
                 style.setFont(font);
                 setFillColor(style, 245, 240, 230);
@@ -831,9 +830,7 @@ public class CuttingReportExcelService {
         private CellStyle createGrandTotalStyle(Workbook workbook) {
                 CellStyle style = createBodyStyle(workbook);
 
-                Font font = workbook.createFont();
-                font.setBold(true);
-                font.setColor(IndexedColors.DARK_GREEN.getIndex());
+                Font font = createFont(workbook, true, 10, IndexedColors.DARK_GREEN.getIndex());
 
                 style.setFont(font);
                 setFillColor(style, 220, 232, 223);

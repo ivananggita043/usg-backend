@@ -54,6 +54,7 @@ import com.garmentqc.system.model.InspectionDefect;
 import com.garmentqc.system.model.User;
 import com.garmentqc.system.repository.BuyerRepository;
 import com.garmentqc.system.repository.InspectionRepository;
+import com.garmentqc.system.repository.StyleRepository;
 
 import lombok.RequiredArgsConstructor;
 
@@ -66,7 +67,7 @@ public class WashingPeriodReportExcelService {
     private static final String WASHING = "WASHING";
     private static final String BULK = "BULK";
     private static final String REPAIR = "REPAIR";
-    private static final String GRAND_TOTAL = "GRAND TOTAL";
+    private static final String GRAND_TOTAL = "SUMMARY";
     private static final DateTimeFormatter DATE_FORMAT = DateTimeFormatter.ofPattern("dd MMMM yyyy", Locale.ENGLISH);
     private static final DateTimeFormatter SHORT_DATE_FORMAT = DateTimeFormatter.ofPattern("dd/MM", Locale.ENGLISH);
     private static final int LABEL_COLUMN = 0;
@@ -74,6 +75,7 @@ public class WashingPeriodReportExcelService {
     private final InspectionRepository inspectionRepository;
     private final InspectionReportService inspectionReportService;
     private final BuyerRepository buyerRepository;
+    private final StyleRepository styleRepository;
 
     public byte[] exportWeeklyWashingExcel(LocalDate date, ReportGroupingType groupingType, String buyer, String style,
             User currentUser) throws IOException {
@@ -108,12 +110,8 @@ public class WashingPeriodReportExcelService {
                 "MONTHLY");
     }
 
-    private byte[] exportPeriod(LocalDate start, LocalDate end, ReportGroupingType groupingType,
-            String buyerValue,
-            String styleValue,
-            User currentUser,
-            String periodType) throws IOException {
-
+    private byte[] exportPeriod(LocalDate start, LocalDate end, ReportGroupingType groupingType, String buyerValue,
+            String styleValue, User currentUser, String periodType) throws IOException {
         String section = inspectionReportService.resolveSectionForUser(currentUser, WASHING);
 
         if (section != null && !section.isBlank() && !WASHING.equalsIgnoreCase(section)) {
@@ -146,8 +144,29 @@ public class WashingPeriodReportExcelService {
                         && WASHING.equalsIgnoreCase(i.getLine().getSection().name()))
                 .filter(i -> i.getWashingType() != null)
                 .filter(i -> canViewInspection(i, currentUser))
-                .filter(i -> matches(buyerFilter, i.getBuyerName()))
-                .filter(i -> matches(styleFilter, i.getStyleCode()))
+                .filter(i -> {
+                    if ("ALL".equalsIgnoreCase(buyerFilter)) {
+                        return true;
+                    }
+
+                    return i.getStyleColor() != null
+                            && i.getStyleColor().getStyle() != null
+                            && i.getStyleColor().getStyle().getBuyer() != null
+                            && matches(
+                                    buyerFilter,
+                                    i.getStyleColor().getStyle().getBuyer().getName());
+                })
+                .filter(i -> {
+                    if ("ALL".equalsIgnoreCase(styleFilter)) {
+                        return true;
+                    }
+
+                    return i.getStyleColor() != null
+                            && i.getStyleColor().getStyle() != null
+                            && matches(
+                                    styleFilter,
+                                    i.getStyleColor().getStyle().getStyleCode());
+                })
                 .sorted(Comparator.comparing(Inspection::getCreatedAt))
                 .toList();
 
@@ -643,8 +662,7 @@ public class WashingPeriodReportExcelService {
             return;
         }
 
-        boolean exists = inspectionRepository
-                .existsByBuyerNameIgnoreCase(buyer);
+        boolean exists = buyerRepository.existsByNameIgnoreCase(buyer);
 
         if (!exists) {
             throw new BadRequestException(
@@ -657,14 +675,23 @@ public class WashingPeriodReportExcelService {
             return;
         }
 
-        boolean exists = inspectionRepository
-                .existsByBuyerNameIgnoreCaseAndStyleCodeIgnoreCase(
-                        buyer,
-                        style);
+        boolean exists;
+
+        if ("ALL".equalsIgnoreCase(buyer)) {
+            exists = styleRepository.existsByStyleCodeIgnoreCase(style);
+        } else {
+            exists = styleRepository
+                    .existsByBuyer_NameIgnoreCaseAndStyleCodeIgnoreCase(
+                            buyer,
+                            style);
+        }
 
         if (!exists) {
             throw new BadRequestException(
-                    "Style '" + style + "' tidak ditemukan untuk buyer '" + buyer + "'.");
+                    "Style '" + style + "' tidak ditemukan"
+                            + ("ALL".equalsIgnoreCase(buyer)
+                                    ? "."
+                                    : " untuk buyer '" + buyer + "'."));
         }
     }
 
@@ -858,7 +885,7 @@ public class WashingPeriodReportExcelService {
             style.setRightBorderColor(IndexedColors.GREY_50_PERCENT.getIndex());
 
             XSSFFont font = (XSSFFont) workbook.createFont();
-            font.setFontName("Calibri");
+            font.setFontName("Arial");
             font.setFontHeightInPoints((short) fontSize);
             font.setBold(bold);
             font.setColor(fontColor);

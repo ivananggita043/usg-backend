@@ -5,6 +5,7 @@ import com.garmentqc.system.enums.DefectCategory;
 import com.garmentqc.system.model.DefectType;
 import com.garmentqc.system.model.Inspection;
 import com.garmentqc.system.model.InspectionDefect;
+import com.garmentqc.system.model.StyleColor;
 import com.garmentqc.system.model.User;
 import com.garmentqc.system.repository.InspectionRepository;
 
@@ -68,12 +69,30 @@ public class FinishingReportExcelService {
                                 .collect(Collectors.toList());
 
                 Map<ProductionKey, InspectionData> groupedData = new LinkedHashMap<>();
-
                 for (Inspection inspection : inspections) {
+                        StyleColor styleColor = inspection.getStyleColor();
+
+                        String buyerName = "";
+                        String styleCode = "";
+                        String colorName = "";
+
+                        if (styleColor != null) {
+                                colorName = safe(styleColor.getColorName());
+
+                                if (styleColor.getStyle() != null) {
+                                        styleCode = safe(styleColor.getStyle().getStyleCode());
+
+                                        if (styleColor.getStyle().getBuyer() != null) {
+                                                buyerName = safe(
+                                                                styleColor.getStyle().getBuyer().getName());
+                                        }
+                                }
+                        }
+
                         ProductionKey key = new ProductionKey(
-                                        safe(inspection.getBuyerName()),
-                                        safe(inspection.getStyleCode()),
-                                        safe(inspection.getColorName()));
+                                        buyerName,
+                                        styleCode,
+                                        colorName);
 
                         InspectionData data = groupedData.computeIfAbsent(
                                         key, ignored -> new InspectionData());
@@ -120,7 +139,7 @@ public class FinishingReportExcelService {
                                         "DEPT: DRESS 2", styles.subtitle);
 
                         createMergedRow(sheet, 4, 0, percentColumn,
-                                        "REPORT DATE: " + date.format(DATE_FORMAT), styles.period);
+                                        "DATE: " + date.format(DATE_FORMAT), styles.period);
 
                         int rowIndex = 5;
                         int infoStartRow = rowIndex;
@@ -570,9 +589,23 @@ public class FinishingReportExcelService {
                                 data.transferQuantity = inspection.getTransferQuantity();
                         }
 
-                        addIfPresent(data.buyers, inspection.getBuyerName());
-                        addIfPresent(data.styles, inspection.getStyleCode());
-                        addIfPresent(data.colors, inspection.getColorName());
+                        StyleColor styleColor = inspection.getStyleColor();
+
+                        if (styleColor != null) {
+                                addIfPresent(data.colors, styleColor.getColorName());
+
+                                if (styleColor.getStyle() != null) {
+                                        addIfPresent(
+                                                        data.styles,
+                                                        styleColor.getStyle().getStyleCode());
+
+                                        if (styleColor.getStyle().getBuyer() != null) {
+                                                addIfPresent(
+                                                                data.buyers,
+                                                                styleColor.getStyle().getBuyer().getName());
+                                        }
+                                }
+                        }
                         addIfPresent(data.processes, inspection.getProcess());
 
                         if (inspection.getInspectionDefects() != null) {
@@ -722,9 +755,9 @@ public class FinishingReportExcelService {
                                         IndexedColors.DARK_BLUE.getIndex(),
                                         9, true, HorizontalAlignment.CENTER);
 
-                        period = style(workbook, GREEN_LIGHT,
-                                        IndexedColors.DARK_BLUE.getIndex(),
-                                        9, false, HorizontalAlignment.LEFT);
+period = style(workbook, GREEN_LIGHT,
+                IndexedColors.DARK_BLUE.getIndex(),
+                9, true, HorizontalAlignment.CENTER);
 
                         header = style(workbook, BLUE_HEADER,
                                         IndexedColors.DARK_BLUE.getIndex(),
@@ -813,7 +846,7 @@ public class FinishingReportExcelService {
                         style.setRightBorderColor(IndexedColors.GREY_50_PERCENT.getIndex());
 
                         XSSFFont font = (XSSFFont) workbook.createFont();
-                        font.setFontName("Calibri");
+                        font.setFontName("Arial");
                         font.setFontHeightInPoints((short) fontSize);
                         font.setBold(bold);
                         font.setColor(fontColor);

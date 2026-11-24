@@ -54,4 +54,10 @@ public interface DefectTypeRepository extends JpaRepository<DefectType, String> 
 
         @EntityGraph(attributePaths = "defectArea")
         List<DefectType> findByActiveTrue();
+
+        List<DefectType> findBySectionAndCategoryAndActiveTrueOrderByNameAsc(Section section, DefectCategory category);
+
+        List<DefectType> findBySectionAndActiveTrueOrderByNameAsc(Section section);
+
+List<DefectType> findBySectionAndActiveTrueAndNameContainingIgnoreCaseOrderByNameAsc(Section section, String name);
 }

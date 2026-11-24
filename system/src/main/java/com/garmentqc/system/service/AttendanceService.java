@@ -8,6 +8,8 @@ import java.time.temporal.ChronoUnit;
 import java.util.List;
 
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -291,5 +293,61 @@ public class AttendanceService {
                                                 "Data absensi hari ini belum tersedia."));
 
                 return toResponse(attendance);
+        }
+
+        @Transactional(readOnly = true)
+        public List<AttendanceResponse> getAll(String username) {
+
+                User user = getActiveUser(username);
+
+                return attendanceRepository.findByUser_Id(user.getId())
+                                .stream()
+                                .map(this::toResponse)
+                                .toList();
+        }
+
+        @Transactional(readOnly = true)
+        public Page<AttendanceResponse> getAllPaginated(String username, Pageable pageable) {
+                User user = getActiveUser(username);
+
+                return attendanceRepository
+                                .findAttendancesByUserId(user.getId(), pageable)
+                                .map(this::toResponse);
+        }
+
+        @Transactional(readOnly = true)
+        public AttendanceResponse getById(String username, String attendanceId) {
+                User user = getActiveUser(username);
+
+                Attendance attendance = attendanceRepository.findById(attendanceId)
+                                .orElseThrow(() -> new ResourceNotFoundException(
+                                                "Data attendance tidak ditemukan"));
+
+                if (attendance.getUser() == null
+                                || !attendance.getUser().getId().equals(user.getId())) {
+
+                        throw new UnauthorizedException(
+                                        "Anda hanya dapat melihat attendance milik sendiri");
+                }
+
+                return toResponse(attendance);
+        }
+
+        private User getActiveUser(String username) {
+
+                User user = userRepository.findByUsername(username)
+                                .orElseThrow(() -> new ResourceNotFoundException(
+                                                "User tidak ditemukan"));
+
+                if (!user.isActive()) {
+                        throw new UnauthorizedException("User tidak aktif");
+                }
+
+                if (user.getRole() != Role.USER) {
+                        throw new UnauthorizedException(
+                                        "Akses hanya untuk USER");
+                }
+
+                return user;
         }
 }

@@ -12,29 +12,44 @@ import com.garmentqc.system.model.CuttingInspectionItem;
 
 public interface CuttingInspectionItemRepository extends JpaRepository<CuttingInspectionItem, String> {
 
-    List<CuttingInspectionItem> findByCuttingInspection(CuttingInspection cuttingInspection);
+        List<CuttingInspectionItem> findByCuttingInspection(CuttingInspection cuttingInspection);
 
-    @Query("""
-            SELECT item
-            FROM CuttingInspectionItem item
-            JOIN FETCH item.cuttingInspection inspection
-            WHERE inspection.createdAt >= :start
-              AND inspection.createdAt < :end
-            """)
-    List<CuttingInspectionItem> findItemsByInspectionDateRange(
-            @Param("start") Instant start,
-            @Param("end") Instant end);
+        @Query("""
+                        SELECT item
+                        FROM CuttingInspectionItem item
+                        JOIN FETCH item.cuttingInspection inspection
+                        WHERE inspection.createdAt >= :start
+                          AND inspection.createdAt < :end
+                        """)
+        List<CuttingInspectionItem> findItemsByInspectionDateRange(
+                        @Param("start") Instant start,
+                        @Param("end") Instant end);
 
-    @Query("""
-            SELECT item
-            FROM CuttingInspectionItem item
-            JOIN FETCH item.cuttingInspection inspection
-            WHERE inspection.createdAt >= :start
-              AND inspection.createdAt < :end
-              AND inspection.submittedBy.id = :userId
-            """)
-    List<CuttingInspectionItem> findItemsByInspectionDateRangeAndUserId(
-            @Param("start") Instant start,
-            @Param("end") Instant end,
-            @Param("userId") String userId);
+        @Query("""
+                        SELECT item
+                        FROM CuttingInspectionItem item
+                        JOIN FETCH item.cuttingInspection inspection
+                        WHERE inspection.createdAt >= :start
+                          AND inspection.createdAt < :end
+                          AND inspection.submittedBy.id = :userId
+                        """)
+        List<CuttingInspectionItem> findItemsByInspectionDateRangeAndUserId(
+                        @Param("start") Instant start,
+                        @Param("end") Instant end,
+                        @Param("userId") String userId);
+
+        @Query("""
+                        SELECT item
+                        FROM CuttingInspectionItem item
+                        JOIN FETCH item.cuttingInspection inspection
+                        JOIN FETCH inspection.line
+                        LEFT JOIN FETCH inspection.submittedBy
+                        JOIN FETCH item.styleColor sc
+                        JOIN FETCH sc.style s
+                        JOIN FETCH s.buyer
+                        LEFT JOIN FETCH item.defectType
+                        WHERE inspection.id IN :inspectionIds
+                        """)
+        List<CuttingInspectionItem> findAllWithDetailsByInspectionIds(
+                        @Param("inspectionIds") List<String> inspectionIds);
 }

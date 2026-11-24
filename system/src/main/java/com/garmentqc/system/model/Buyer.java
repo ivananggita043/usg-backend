@@ -13,16 +13,15 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 @Entity
-@Table (name = "buyer")
-@Getter 
-@Setter 
-@NoArgsConstructor 
+@Table(name = "buyer")
+@Getter
+@Setter
+@NoArgsConstructor
 public class Buyer extends BaseEntity {
 
-    @Column (nullable = false, length = 100)
+    @Column(nullable = false, length = 100)
     private String name;
 
-    @OneToMany (mappedBy = "buyer", cascade = CascadeType.ALL)
+    @OneToMany(mappedBy = "buyer", cascade = CascadeType.ALL)
     private List<Style> styles = new ArrayList<>();
-
 }

@@ -7,5 +7,6 @@ public enum DefectCategory {
     DEFECT_FABRIC,
     DEFECT_OTHERS,
     DEFECT_WASHING,
-    DEFECT_FINISHING
+    DEFECT_FINISHING,
+    DEFECT_FINAL
 }

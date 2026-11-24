@@ -6,8 +6,10 @@ import com.garmentqc.system.model.DefectType;
 import com.garmentqc.system.model.Inspection;
 import com.garmentqc.system.model.InspectionDefect;
 import com.garmentqc.system.model.User;
+import com.garmentqc.system.repository.BuyerRepository;
 import com.garmentqc.system.repository.InspectionRepository;
 import com.garmentqc.system.repository.LineRepository;
+import com.garmentqc.system.repository.StyleRepository;
 
 import lombok.RequiredArgsConstructor;
 
@@ -47,6 +49,8 @@ public class SewingPeriodReportExcelService {
         private final InspectionRepository inspectionRepository;
         private final InspectionReportService inspectionReportService;
         private final LineRepository lineRepository;
+        private final BuyerRepository buyerRepository;
+        private final StyleRepository styleRepository;
 
         private static final Comparator<String> NATURAL_ORDER = (a, b) -> {
                 String[] pa = a.split("(?<=\\d)(?=\\D)|(?<=\\D)(?=\\d)");
@@ -182,15 +186,55 @@ public class SewingPeriodReportExcelService {
                                 .filter(i -> SEWING.equals(
                                                 i.getLine().getSection().name()))
                                 .filter(i -> canViewInspection(i, currentUser))
-                                .filter(i -> matches(buyerFilter, i.getBuyerName()))
-                                .filter(i -> matches(styleFilter, i.getStyleCode()))
+                                .filter(i -> {
+                                        if (!isSpecificFilter(buyerFilter)) {
+                                                return true;
+                                        }
+
+                                        return i.getStyleColor() != null
+                                                        && i.getStyleColor().getStyle() != null
+                                                        && i.getStyleColor().getStyle().getBuyer() != null
+                                                        && matches(
+                                                                        buyerFilter,
+                                                                        i.getStyleColor().getStyle()
+                                                                                        .getBuyer().getName());
+                                })
+                                .filter(i -> {
+                                        if (!isSpecificFilter(styleFilter)) {
+                                                return true;
+                                        }
+
+                                        return i.getStyleColor() != null
+                                                        && i.getStyleColor().getStyle() != null
+                                                        && matches(
+                                                                        styleFilter,
+                                                                        i.getStyleColor().getStyle().getStyleCode());
+                                })
                                 .filter(i -> matches(lineFilter, i.getLine().getName()))
                                 .sorted(
                                                 Comparator.comparing(
-                                                                (Inspection i) -> safe(i.getBuyerName()),
+                                                                (Inspection i) -> safe(
+                                                                                i.getStyleColor() != null
+                                                                                                && i.getStyleColor()
+                                                                                                                .getStyle() != null
+                                                                                                && i.getStyleColor()
+                                                                                                                .getStyle()
+                                                                                                                .getBuyer() != null
+                                                                                                                                ? i.getStyleColor()
+                                                                                                                                                .getStyle()
+                                                                                                                                                .getBuyer()
+                                                                                                                                                .getName()
+                                                                                                                                : ""),
                                                                 String.CASE_INSENSITIVE_ORDER)
                                                                 .thenComparing(
-                                                                                i -> safe(i.getStyleCode()),
+                                                                                i -> safe(
+                                                                                                i.getStyleColor() != null
+                                                                                                                && i.getStyleColor()
+                                                                                                                                .getStyle() != null
+                                                                                                                                                ? i.getStyleColor()
+                                                                                                                                                                .getStyle()
+                                                                                                                                                                .getStyleCode()
+                                                                                                                                                : ""),
                                                                                 String.CASE_INSENSITIVE_ORDER)
                                                                 .thenComparing(
                                                                                 i -> safe(i.getLine().getName()),
@@ -270,7 +314,7 @@ public class SewingPeriodReportExcelService {
 
                         mergedRow(
                                         sheet, 4, 0, lastColumn,
-                                        "PERIODE: "
+                                        "PERIOD: "
                                                         + startDate.format(DATE_FORMAT)
                                                         + " - "
                                                         + endDate.format(DATE_FORMAT),
@@ -867,15 +911,13 @@ public class SewingPeriodReportExcelService {
         }
 
         private void validateBuyerExists(String buyer) {
-
                 if (!isSpecificFilter(buyer)) {
                         return;
                 }
 
                 String buyerName = buyer.trim();
 
-                boolean exists = inspectionRepository
-                                .existsByBuyerNameIgnoreCase(buyerName);
+                boolean exists = buyerRepository.existsByNameIgnoreCase(buyerName);
 
                 if (!exists) {
                         throw new BadRequestException(
@@ -884,7 +926,6 @@ public class SewingPeriodReportExcelService {
         }
 
         private void validateStyleExists(String style, String buyer) {
-
                 if (!isSpecificFilter(style)) {
                         return;
                 }
@@ -894,12 +935,12 @@ public class SewingPeriodReportExcelService {
                 boolean exists;
 
                 if (isSpecificFilter(buyer)) {
-                        exists = inspectionRepository
-                                        .existsByBuyerNameIgnoreCaseAndStyleCodeIgnoreCase(
+                        exists = styleRepository
+                                        .existsByBuyer_NameIgnoreCaseAndStyleCodeIgnoreCase(
                                                         buyer.trim(),
                                                         styleCode);
                 } else {
-                        exists = inspectionRepository
+                        exists = styleRepository
                                         .existsByStyleCodeIgnoreCase(styleCode);
                 }
 
@@ -1188,7 +1229,7 @@ public class SewingPeriodReportExcelService {
 
                         XSSFFont font = (XSSFFont) workbook.createFont();
 
-                        font.setFontName("Calibri");
+                        font.setFontName("Arial");
                         font.setFontHeightInPoints((short) size);
                         font.setBold(bold);
                         font.setColor(fontColor);

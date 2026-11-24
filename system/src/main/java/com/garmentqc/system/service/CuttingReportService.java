@@ -22,8 +22,11 @@ import com.garmentqc.system.dto.CuttingGroupedReportResponse;
 import com.garmentqc.system.dto.CuttingReportResponse;
 import com.garmentqc.system.enums.CuttingProcessCheck;
 import com.garmentqc.system.exception.UnauthorizedException;
+import com.garmentqc.system.model.Buyer;
 import com.garmentqc.system.model.CuttingInspection;
 import com.garmentqc.system.model.CuttingInspectionItem;
+import com.garmentqc.system.model.Style;
+import com.garmentqc.system.model.StyleColor;
 import com.garmentqc.system.model.User;
 import com.garmentqc.system.repository.CuttingInspectionItemRepository;
 import com.garmentqc.system.repository.CuttingInspectionRepository;
@@ -104,9 +107,7 @@ public class CuttingReportService {
         }
 
         @Transactional(readOnly = true)
-        public CuttingGroupedReportResponse getMonthlyBuyerReport(
-                        int year,
-                        int month) {
+        public CuttingGroupedReportResponse getMonthlyBuyerReport(int year, int month) {
                 validateReportAccess();
 
                 LocalDate start = LocalDate.of(year, month, 1);
@@ -120,9 +121,7 @@ public class CuttingReportService {
         }
 
         @Transactional(readOnly = true)
-        public CuttingGroupedReportResponse getMonthlyStyleReport(
-                        int year,
-                        int month) {
+        public CuttingGroupedReportResponse getMonthlyStyleReport(int year, int month) {
                 validateReportAccess();
 
                 LocalDate start = LocalDate.of(year, month, 1);
@@ -139,6 +138,7 @@ public class CuttingReportService {
                         String reportType,
                         LocalDate startDate,
                         LocalDate endDate) {
+
                 Instant start = startDate.atStartOfDay(ZONE_ID).toInstant();
 
                 Instant endExclusive = endDate.plusDays(1)
@@ -157,6 +157,7 @@ public class CuttingReportService {
                 long totalDefects = 0;
 
                 for (CuttingInspection inspection : inspections) {
+
                         CuttingProcessCheck processCheck = inspection.getProcessCheck();
 
                         ProcessAccumulator summary = processMap.computeIfAbsent(
@@ -168,6 +169,7 @@ public class CuttingReportService {
                         List<CuttingInspectionItem> items = itemRepository.findByCuttingInspection(inspection);
 
                         for (CuttingInspectionItem item : items) {
+
                                 long quantityInspect = item.getQuantityInspect() == null
                                                 ? 0L
                                                 : item.getQuantityInspect();
@@ -176,9 +178,31 @@ public class CuttingReportService {
                                                 ? 0L
                                                 : item.getQuantityDefect();
 
-                                String defectTypeName = item.getDefectType() == null
-                                                ? ""
-                                                : item.getDefectType().getName();
+                                StyleColor styleColor = item.getStyleColor();
+
+                                Style style = styleColor != null
+                                                ? styleColor.getStyle()
+                                                : null;
+
+                                Buyer buyer = style != null
+                                                ? style.getBuyer()
+                                                : null;
+
+                                String buyerName = buyer != null
+                                                ? buyer.getName()
+                                                : "";
+
+                                String styleCode = style != null
+                                                ? style.getStyleCode()
+                                                : "";
+
+                                String colorName = styleColor != null
+                                                ? styleColor.getColorName()
+                                                : "";
+
+                                String defectTypeName = item.getDefectType() != null
+                                                ? item.getDefectType().getName()
+                                                : "";
 
                                 double itemPercentage = calculatePercentage(
                                                 quantityDefect,
@@ -189,9 +213,9 @@ public class CuttingReportService {
                                                 .toLocalDate();
 
                                 CuttingReportResponse.DetailRow detailRow = new CuttingReportResponse.DetailRow(
-                                                item.getBuyerName(),
-                                                item.getStyleCode(),
-                                                item.getColorName(),
+                                                buyerName,
+                                                styleCode,
+                                                colorName,
                                                 item.getLot(),
                                                 defectTypeName,
                                                 quantityInspect,
@@ -251,6 +275,7 @@ public class CuttingReportService {
                         LocalDate startDate,
                         LocalDate endDate,
                         boolean groupByStyle) {
+
                 Instant start = startDate.atStartOfDay(ZONE_ID).toInstant();
 
                 Instant endExclusive = endDate.plusDays(1)
@@ -265,15 +290,42 @@ public class CuttingReportService {
                 Map<GroupKey, GroupAccumulator> groups = new LinkedHashMap<>();
 
                 for (CuttingInspection inspection : inspections) {
+
                         List<CuttingInspectionItem> items = itemRepository.findByCuttingInspection(inspection);
 
                         for (CuttingInspectionItem item : items) {
-                                String buyer = item.getBuyerName();
-                                String style = groupByStyle
-                                                ? item.getStyleCode()
+
+                                StyleColor styleColor = item.getStyleColor();
+
+                                Style style = styleColor != null
+                                                ? styleColor.getStyle()
                                                 : null;
 
-                                GroupKey key = new GroupKey(buyer, style);
+                                Buyer buyer = style != null
+                                                ? style.getBuyer()
+                                                : null;
+
+                                String buyerId = buyer != null
+                                                ? buyer.getId()
+                                                : "UNKNOWN";
+
+                                String buyerName = buyer != null
+                                                ? buyer.getName()
+                                                : "Unknown";
+
+                                String styleId = groupByStyle && style != null
+                                                ? style.getId()
+                                                : null;
+
+                                String styleCode = groupByStyle && style != null
+                                                ? style.getStyleCode()
+                                                : null;
+
+                                GroupKey key = new GroupKey(
+                                                buyerId,
+                                                buyerName,
+                                                styleId,
+                                                styleCode);
 
                                 GroupAccumulator summary = groups.computeIfAbsent(
                                                 key,
@@ -323,31 +375,10 @@ public class CuttingReportService {
                                 summaries);
         }
 
-        private record GroupKey(
-                        String buyerName,
-                        String styleCode) {
-        }
-
-        private static class GroupAccumulator {
-                private final Set<String> inspectionIds = new HashSet<>();
-
-                private long totalItems;
-                private long totalQuantityInspect;
-                private long totalDefects;
-        }
-
-        private static class ProcessAccumulator {
-                private long totalInspections;
-                private long totalItems;
-                private long totalQuantityInspect;
-                private long totalDefects;
-
-                private final List<CuttingReportResponse.DetailRow> detailRows = new ArrayList<>();
-        }
-
         private double calculatePercentage(
                         long totalDefects,
                         long totalQuantityInspect) {
+
                 if (totalQuantityInspect <= 0) {
                         return 0.0;
                 }
@@ -358,12 +389,14 @@ public class CuttingReportService {
         }
 
         private LocalDate getWeeklyStartDate(LocalDate date) {
+
                 int daysSinceFriday = (date.getDayOfWeek().getValue() - 5 + 7) % 7;
 
                 return date.minusDays(daysSinceFriday);
         }
 
         private void validateReportAccess() {
+
                 Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
 
                 if (authentication == null
@@ -371,16 +404,19 @@ public class CuttingReportService {
                                 || authentication instanceof AnonymousAuthenticationToken
                                 || !(authentication.getPrincipal() instanceof User currentUser)) {
 
-                        throw new UnauthorizedException("Autentikasi diperlukan");
+                        throw new UnauthorizedException(
+                                        "Autentikasi diperlukan");
                 }
 
                 if (currentUser.getRole() == null) {
-                        throw new UnauthorizedException("Role pengguna tidak valid");
+                        throw new UnauthorizedException(
+                                        "Role pengguna tidak valid");
                 }
 
                 String role = currentUser.getRole().name();
 
-                if ("SUPER_ADMIN".equals(role) || "VISITOR".equals(role)) {
+                if ("SUPER_ADMIN".equals(role)
+                                || "VISITOR".equals(role)) {
                         return;
                 }
 
@@ -392,5 +428,31 @@ public class CuttingReportService {
 
                 throw new UnauthorizedException(
                                 "Hanya Admin CUTTING dan Super Admin yang dapat mengakses laporan cutting");
+        }
+
+        private record GroupKey(
+                        String buyerId,
+                        String buyerName,
+                        String styleId,
+                        String styleCode) {
+        }
+
+        private static class GroupAccumulator {
+
+                private final Set<String> inspectionIds = new HashSet<>();
+
+                private long totalItems;
+                private long totalQuantityInspect;
+                private long totalDefects;
+        }
+
+        private static class ProcessAccumulator {
+
+                private long totalInspections;
+                private long totalItems;
+                private long totalQuantityInspect;
+                private long totalDefects;
+
+                private final List<CuttingReportResponse.DetailRow> detailRows = new ArrayList<>();
         }
 }

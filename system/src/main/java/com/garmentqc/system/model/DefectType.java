@@ -1,3 +1,4 @@
+
 package com.garmentqc.system.model;
 
 import com.garmentqc.system.enums.DefectCategory;
@@ -27,19 +28,16 @@ public class DefectType extends BaseEntity {
     private Section section;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 20)
+    @Column(nullable = true, length = 20)
     private DefectCategory category;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "defect_area_id")
-
     private DefectArea defectArea;
 
     @Column(nullable = false, length = 200)
-
     private String name;
 
     @Column(nullable = false, name = "is_active")
-
     private boolean active = true;
 }

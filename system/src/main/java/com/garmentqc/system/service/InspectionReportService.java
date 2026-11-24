@@ -27,6 +27,7 @@ import com.garmentqc.system.model.DefectType;
 import com.garmentqc.system.model.Inspection;
 import com.garmentqc.system.model.InspectionDefect;
 import com.garmentqc.system.model.Line;
+import com.garmentqc.system.model.StyleColor;
 import com.garmentqc.system.model.User;
 import com.garmentqc.system.repository.InspectionRepository;
 import com.garmentqc.system.repository.LineRepository;
@@ -441,18 +442,32 @@ public class InspectionReportService {
                                 continue;
                         }
 
-                        String buyerName = normalizeText(inspection.getBuyerName());
-                        String styleCode = normalizeText(inspection.getStyleCode());
+                        StyleColor styleColor = inspection.getStyleColor();
+
+                        String buyerName = "";
+                        String styleCode = "";
+
+                        if (styleColor != null && styleColor.getStyle() != null) {
+                                styleCode = normalizeText(styleColor.getStyle().getStyleCode());
+
+                                if (styleColor.getStyle().getBuyer() != null) {
+                                        buyerName = normalizeText(
+                                                        styleColor.getStyle().getBuyer().getName());
+                                }
+                        }
+
+                        final String finalBuyerName = buyerName;
+                        final String finalStyleCode = styleCode;
 
                         String key = buyerWise
-                                        ? buyerName
-                                        : buyerName + "\u0000" + styleCode;
+                                        ? finalBuyerName
+                                        : finalBuyerName + "\u0000" + finalStyleCode;
 
                         GroupAccumulator group = groups.computeIfAbsent(
                                         key,
                                         ignored -> new GroupAccumulator(
-                                                        buyerName,
-                                                        buyerWise ? null : styleCode));
+                                                        finalBuyerName,
+                                                        buyerWise ? null : finalStyleCode));
 
                         group.totalInspections++;
 
@@ -712,11 +727,8 @@ public class InspectionReportService {
 
                 return grouped.entrySet().stream()
                                 .map(entry -> {
-
                                         List<Inspection> items = entry.getValue();
-
                                         long totalInspections = items.size();
-
                                         long totalQuantityInspect = items.stream()
                                                         .mapToLong(i -> valueOrZero(
                                                                         i.getInspectQuantity()))

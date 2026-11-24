@@ -1,9 +1,11 @@
 package com.garmentqc.system.service;
 
 import com.garmentqc.system.enums.DefectCategory;
+import com.garmentqc.system.exception.BadRequestException;
 import com.garmentqc.system.model.DefectType;
 import com.garmentqc.system.model.Inspection;
 import com.garmentqc.system.model.InspectionDefect;
+import com.garmentqc.system.model.StyleColor;
 import com.garmentqc.system.model.User;
 import com.garmentqc.system.repository.InspectionRepository;
 
@@ -41,8 +43,7 @@ public class WashingReportExcelService {
         private static final String BULK = "BULK";
         private static final String REPAIR = "REPAIR";
 
-        private static final DateTimeFormatter DATE_FORMAT = DateTimeFormatter.ofPattern("dd MMMM yyyy",
-                        Locale.ENGLISH);
+        private static final DateTimeFormatter DATE_FORMAT = DateTimeFormatter.ofPattern("dd MMMM yyyy", Locale.ENGLISH);
         private static final int LABEL_COLUMN = 0;
 
         private final InspectionRepository inspectionRepository;
@@ -50,7 +51,7 @@ public class WashingReportExcelService {
 
         public byte[] exportDailyWashingExcel(LocalDate date, User currentUser) throws IOException {
                 if (date == null) {
-                        throw new com.garmentqc.system.exception.BadRequestException("Tanggal laporan wajib diisi");
+                        throw new BadRequestException("Tanggal laporan wajib diisi");
                 }
 
                 String section = inspectionReportService.resolveSectionForUser(currentUser, WASHING);
@@ -94,7 +95,7 @@ public class WashingReportExcelService {
                                         "DEPT: DRESS 2", styles.subtitle);
                         createMergedRow(
                                         sheet, 4, 0, layout.lastColumn(),
-                                        "REPORT DATE: " + date.format(DATE_FORMAT),
+                                        "DATE: " + date.format(DATE_FORMAT),
                                         styles.period);
 
                         int rowIndex = 5;
@@ -246,26 +247,45 @@ public class WashingReportExcelService {
 
         private Map<ProductionKey, InspectionData> groupProduction(List<Inspection> inspections, String washingType) {
                 Map<ProductionKey, InspectionData> grouped = new LinkedHashMap<>();
+
                 for (Inspection inspection : inspections) {
-                        if (inspection.getWashingType() == null
-                                        || !washingType.equals(inspection.getWashingType().name())) {
+                        if (inspection.getWashingType() == null || !washingType.equals(inspection.getWashingType().name())) {
                                 continue;
                         }
 
+                        StyleColor styleColor = inspection.getStyleColor();
+
+                        String buyerName = "";
+                        String styleCode = "";
+                        String colorName = "";
+
+                        if (styleColor != null) {
+                                colorName = safe(styleColor.getColorName());
+
+                                if (styleColor.getStyle() != null) {
+                                        styleCode = safe(styleColor.getStyle().getStyleCode());
+                                        if (styleColor.getStyle().getBuyer() != null) {buyerName = safe(styleColor.getStyle().getBuyer().getName());
+                                        }
+                                }
+                        }
+
                         ProductionKey key = new ProductionKey(
-                                        safe(inspection.getBuyerName()),
-                                        safe(inspection.getStyleCode()),
-                                        safe(inspection.getColorName()));
+                                        buyerName,
+                                        styleCode,
+                                        colorName);
 
                         InspectionData data = grouped.computeIfAbsent(
-                                        key, ignored -> new InspectionData());
+                                        key,
+                                        ignored -> new InspectionData());
+
                         data.add(InspectionData.from(inspection));
                 }
+
                 return grouped;
         }
 
         private List<InspectionData> buildColumns(Map<ProductionKey, InspectionData> grouped) {
-                List<InspectionData> columns = new ArrayList<>(grouped.values());
+List<InspectionData> columns = new ArrayList<>(grouped.values());
                 if (columns.isEmpty()) {
                         columns.add(new InspectionData());
                 }
@@ -368,16 +388,9 @@ public class WashingReportExcelService {
                 return rowIndex;
         }
 
-        private int writeDefectSection(
-                        Sheet sheet,
-                        int rowIndex,
-                        String title,
-                        List<InspectionData> bulkColumns,
-                        List<InspectionData> repairColumns,
-                        Layout layout,
-                        Styles styles,
+        private int writeDefectSection(Sheet sheet, int rowIndex, String title, List<InspectionData> bulkColumns,
+                        List<InspectionData> repairColumns, Layout layout, Styles styles,
                         Function<InspectionData, Map<DefectKey, Integer>> defectGetter) {
-
                 createMergedRow(
                                 sheet, rowIndex++, LABEL_COLUMN, layout.lastColumn(),
                                 title, styles.section);
@@ -475,16 +488,9 @@ public class WashingReportExcelService {
                 return rowIndex;
         }
 
-        private int writeSummaryRow(
-                        Sheet sheet,
-                        int rowIndex,
-                        String label,
-                        List<InspectionData> bulkColumns,
-                        List<InspectionData> repairColumns,
-                        Layout layout,
-                        ToIntFunction<InspectionData> getter,
+        private int writeSummaryRow(Sheet sheet, int rowIndex, String label, List<InspectionData> bulkColumns,
+                        List<InspectionData> repairColumns, Layout layout, ToIntFunction<InspectionData> getter,
                         Styles styles) {
-
                 Row row = sheet.createRow(rowIndex++);
 
                 setCell(row, LABEL_COLUMN, label, styles.summaryLabel);
@@ -543,16 +549,9 @@ public class WashingReportExcelService {
                 return rowIndex;
         }
 
-        private int writePercentageRow(
-                        Sheet sheet,
-                        int rowIndex,
-                        String label,
-                        List<InspectionData> bulkColumns,
-                        List<InspectionData> repairColumns,
-                        Layout layout,
-                        ToIntFunction<InspectionData> defectGetter,
+        private int writePercentageRow(Sheet sheet, int rowIndex, String label, List<InspectionData> bulkColumns,
+                        List<InspectionData> repairColumns, Layout layout, ToIntFunction<InspectionData> defectGetter,
                         Styles styles) {
-
                 Row row = sheet.createRow(rowIndex++);
 
                 setCell(row, LABEL_COLUMN, label, styles.summaryLabel);
@@ -770,9 +769,25 @@ public class WashingReportExcelService {
                                 data.transferQuantity = inspection.getTransferQuantity();
                         }
 
-                        addIfPresent(data.buyers, inspection.getBuyerName());
-                        addIfPresent(data.styles, inspection.getStyleCode());
-                        addIfPresent(data.colors, inspection.getColorName());
+                        // Ambil Buyer, Style, dan Color dari relasi StyleColor
+                        StyleColor styleColor = inspection.getStyleColor();
+
+                        if (styleColor != null) {
+                                addIfPresent(data.colors, styleColor.getColorName());
+
+                                if (styleColor.getStyle() != null) {
+                                        addIfPresent(
+                                                        data.styles,
+                                                        styleColor.getStyle().getStyleCode());
+
+                                        if (styleColor.getStyle().getBuyer() != null) {
+                                                addIfPresent(
+                                                                data.buyers,
+                                                                styleColor.getStyle().getBuyer().getName());
+                                        }
+                                }
+                        }
+
                         addIfPresent(data.processes, inspection.getProcess());
                         addIfPresent(data.handfeels, inspection.getHandfeel());
                         addIfPresent(data.grades, inspection.getGrade());
@@ -809,7 +824,8 @@ public class WashingReportExcelService {
                                 }
 
                                 DefectKey key = new DefectKey(
-                                                area, safe(type.getName()));
+                                                area,
+                                                safe(type.getName()));
 
                                 DefectCategory category = type.getCategory();
 
@@ -832,6 +848,7 @@ public class WashingReportExcelService {
                                         data.finishingDefectTotal += quantity;
                                 }
                         }
+
                         return data;
                 }
 
@@ -1069,7 +1086,7 @@ public class WashingReportExcelService {
 
                         XSSFFont font = (XSSFFont) workbook.createFont();
 
-                        font.setFontName("Calibri");
+                        font.setFontName("Arial");
                         font.setFontHeightInPoints((short) fontSize);
                         font.setBold(bold);
                         font.setColor(fontColor);

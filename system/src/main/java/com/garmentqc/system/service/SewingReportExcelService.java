@@ -4,6 +4,7 @@ import com.garmentqc.system.model.DefectType;
 import com.garmentqc.system.model.Inspection;
 import com.garmentqc.system.model.InspectionDefect;
 import com.garmentqc.system.model.Line;
+import com.garmentqc.system.model.StyleColor;
 import com.garmentqc.system.model.User;
 import com.garmentqc.system.repository.InspectionRepository;
 import com.garmentqc.system.repository.LineRepository;
@@ -244,7 +245,7 @@ public class SewingReportExcelService {
                 "DEPT: DRESS 2", styles.subtitleStyle);
 
         createMergedRow(sheet, 4, 0, lastColumn,
-                "REPORT DATE: " + date.format(DATE_FORMAT), styles.periodStyle);
+                "DATE: " + date.format(DATE_FORMAT), styles.periodStyle);
     }
 
     private void createMergedRow(Sheet sheet, int rowIndex, int firstColumn, int lastColumn, String value,
@@ -467,8 +468,8 @@ public class SewingReportExcelService {
             sheet.setColumnWidth(column, 14 * 256);
         }
 
-        sheet.setColumnWidth(lineCount + 1, 14 * 256); 
-        sheet.setColumnWidth(lineCount + 2, 14 * 256); 
+        sheet.setColumnWidth(lineCount + 1, 14 * 256);
+        sheet.setColumnWidth(lineCount + 2, 14 * 256);
     }
 
     private void configureRowHeights(Sheet sheet) {
@@ -544,14 +545,23 @@ public class SewingReportExcelService {
                 transferQuantity += inspection.getTransferQuantity();
             }
 
-            if (inspection.getBuyerName() != null
-                    && !inspection.getBuyerName().isBlank()) {
-                buyers.add(inspection.getBuyerName());
-            }
+            // Buyer dan Style sekarang diambil melalui StyleColor
+            StyleColor styleColor = inspection.getStyleColor();
 
-            if (inspection.getStyleCode() != null
-                    && !inspection.getStyleCode().isBlank()) {
-                styles.add(inspection.getStyleCode());
+            if (styleColor != null && styleColor.getStyle() != null) {
+                String styleCode = styleColor.getStyle().getStyleCode();
+
+                if (styleColor.getStyle().getBuyer() != null) {
+                    String buyerName = styleColor.getStyle().getBuyer().getName();
+
+                    if (buyerName != null && !buyerName.isBlank()) {
+                        buyers.add(buyerName.trim());
+                    }
+                }
+
+                if (styleCode != null && !styleCode.isBlank()) {
+                    styles.add(styleCode.trim());
+                }
             }
 
             if (inspection.getInspectionDefects() == null) {
@@ -693,7 +703,7 @@ public class SewingReportExcelService {
             periodStyle = createStyle(
                     workbook, GREEN_LIGHT,
                     IndexedColors.DARK_BLUE.getIndex(),
-                    (short) 8, false, HorizontalAlignment.CENTER);
+                    (short) 9, false, HorizontalAlignment.CENTER);
 
             headerStyle = createStyle(
                     workbook, BLUE_HEADER,

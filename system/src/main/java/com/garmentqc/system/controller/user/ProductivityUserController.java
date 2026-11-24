@@ -29,29 +29,23 @@ public class ProductivityUserController {
 
     @GetMapping("/today")
     public DailyProductivityResponse getToday(Authentication authentication) {
-        return productivityService.getDailyProductivity(
-                authentication.getName(),
+        return productivityService.getDailyProductivity(authentication.getName(),
                 LocalDate.now(ZoneId.of("Asia/Jakarta")));
     }
 
     @GetMapping("/daily")
-    public DailyProductivityResponse getDaily(
-            Authentication authentication,
+    public DailyProductivityResponse getDaily(Authentication authentication,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
-
-        return productivityService.getDailyProductivity(
-                authentication.getName(), date);
+        return productivityService.getDailyProductivity(authentication.getName(), date);
     }
 
     @GetMapping("/live/summary")
     public ProductivitySummaryResponse getLiveSummary(Authentication authentication) {
-        return productivityService.getLiveProductivitySummary(
-                authentication.getName());
+        return productivityService.getLiveProductivitySummary(authentication.getName());
     }
 
     @GetMapping("/live/hourly")
     public List<HourlyProductivityResponse> getLiveHourly(Authentication authentication) {
-        return productivityService.getLiveHourlyProductivity(
-                authentication.getName());
+        return productivityService.getLiveHourlyProductivity(authentication.getName());
     }
 }

@@ -32,11 +32,7 @@ public class CuttingAnalyticsService {
         private final CuttingInspectionItemRepository itemRepository;
 
         @Transactional(readOnly = true)
-        public CuttingAnalyticsResponse getAnalytics(
-                        LocalDate startDate,
-                        LocalDate endDate,
-                        User currentUser) {
-
+        public CuttingAnalyticsResponse getAnalytics(LocalDate startDate, LocalDate endDate, User currentUser) {
                 validateAccess(currentUser);
                 validateDateRange(startDate, endDate);
 
@@ -45,14 +41,10 @@ public class CuttingAnalyticsService {
                 LocalDate previousEndDate = startDate.minusDays(1);
                 LocalDate previousStartDate = previousEndDate.minusDays(rangeDays - 1);
 
-                List<CuttingInspectionItem> currentItems = getItems(
-                                startDate, endDate, currentUser);
-
-                List<CuttingInspectionItem> previousItems = getItems(
-                                previousStartDate, previousEndDate, currentUser);
+                List<CuttingInspectionItem> currentItems = getItems(startDate, endDate, currentUser);
+                List<CuttingInspectionItem> previousItems = getItems(previousStartDate, previousEndDate, currentUser);
 
                 Map<LocalDate, DailyTotal> currentDailyTotals = aggregateByDate(currentItems);
-
                 Map<LocalDate, DailyTotal> previousDailyTotals = aggregateByDate(previousItems);
 
                 List<DailyData> defectPercentageChart = new ArrayList<>();
@@ -63,7 +55,6 @@ public class CuttingAnalyticsService {
                 DailyTotal previousTotal = new DailyTotal();
 
                 for (LocalDate date = startDate; !date.isAfter(endDate); date = date.plusDays(1)) {
-
                         DailyTotal daily = currentDailyTotals.getOrDefault(
                                         date, new DailyTotal());
 
@@ -117,11 +108,7 @@ public class CuttingAnalyticsService {
                                                 previousTotal.totalDefect));
         }
 
-        private List<CuttingInspectionItem> getItems(
-                        LocalDate startDate,
-                        LocalDate endDate,
-                        User currentUser) {
-
+        private List<CuttingInspectionItem> getItems(LocalDate startDate, LocalDate endDate, User currentUser) {
                 Instant start = startDate.atStartOfDay(ZONE).toInstant();
 
                 Instant end = endDate.plusDays(1)
@@ -138,9 +125,7 @@ public class CuttingAnalyticsService {
                 return itemRepository.findItemsByInspectionDateRange(start, end);
         }
 
-        private Map<LocalDate, DailyTotal> aggregateByDate(
-                        List<CuttingInspectionItem> items) {
-
+        private Map<LocalDate, DailyTotal> aggregateByDate(List<CuttingInspectionItem> items) {
                 Map<LocalDate, DailyTotal> result = new HashMap<>();
 
                 for (CuttingInspectionItem item : items) {
@@ -168,10 +153,7 @@ public class CuttingAnalyticsService {
                 return result;
         }
 
-        private MetricSummary createSummary(
-                        double currentValue,
-                        double previousValue) {
-
+        private MetricSummary createSummary(double currentValue, double previousValue) {
                 double difference = currentValue - previousValue;
 
                 Double percentageChange = previousValue == 0
@@ -187,10 +169,7 @@ public class CuttingAnalyticsService {
                                                 : round(percentageChange));
         }
 
-        private double calculatePercentage(
-                        double totalDefect,
-                        double totalInspect) {
-
+        private double calculatePercentage(double totalDefect, double totalInspect) {
                 if (totalInspect <= 0) {
                         return 0.0;
                 }
@@ -202,23 +181,17 @@ public class CuttingAnalyticsService {
                 return Math.round(value * 100.0) / 100.0;
         }
 
-        private void validateDateRange(
-                        LocalDate startDate,
-                        LocalDate endDate) {
-
+        private void validateDateRange(LocalDate startDate, LocalDate endDate) {
                 if (startDate == null || endDate == null) {
-                        throw new BadRequestException(
-                                        "Start date dan end date wajib diisi");
+                        throw new BadRequestException("Start date dan end date wajib diisi");
                 }
 
                 if (startDate.isAfter(endDate)) {
-                        throw new BadRequestException(
-                                        "Start date tidak boleh setelah end date");
+                        throw new BadRequestException("Start date tidak boleh setelah end date");
                 }
         }
 
         private void validateAccess(User user) {
-
                 if (user == null || user.getRole() == null) {
                         throw new UnauthorizedException("Akses ditolak");
                 }
@@ -233,10 +206,8 @@ public class CuttingAnalyticsService {
                         throw new UnauthorizedException("Akses ditolak");
                 }
 
-                if (user.getSection() == null
-                                || !"CUTTING".equals(user.getSection().name())) {
-                        throw new UnauthorizedException(
-                                        "Akses hanya untuk pengguna section CUTTING");
+                if (user.getSection() == null || !"CUTTING".equals(user.getSection().name())) {
+                        throw new UnauthorizedException("Akses hanya untuk pengguna section CUTTING");
                 }
         }
 

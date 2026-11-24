@@ -6,9 +6,12 @@ import com.garmentqc.system.exception.BadRequestException;
 import com.garmentqc.system.model.DefectType;
 import com.garmentqc.system.model.Inspection;
 import com.garmentqc.system.model.InspectionDefect;
+import com.garmentqc.system.model.StyleColor;
 import com.garmentqc.system.model.User;
+import com.garmentqc.system.repository.BuyerRepository;
 import com.garmentqc.system.repository.InspectionRepository;
 import com.garmentqc.system.repository.LineRepository;
+import com.garmentqc.system.repository.StyleRepository;
 
 import lombok.RequiredArgsConstructor;
 
@@ -63,6 +66,8 @@ public class PackingPeriodReportExcelService {
         private final InspectionRepository inspectionRepository;
         private final InspectionReportService inspectionReportService;
         private final LineRepository lineRepository;
+        private final BuyerRepository buyerRepository;
+        private final StyleRepository styleRepository;
 
         private static final Comparator<String> NATURAL_ORDER = (a, b) -> {
                 String[] pa = a.split("(?<=\\d)(?=\\D)|(?<=\\D)(?=\\d)");
@@ -195,22 +200,60 @@ public class PackingPeriodReportExcelService {
                                 .filter(i -> PACKING.equals(
                                                 i.getLine().getSection().name()))
                                 .filter(i -> canViewInspection(i, currentUser))
-                                .filter(i -> matches(buyerFilter, i.getBuyerName()))
-                                .filter(i -> matches(styleFilter, i.getStyleCode()))
+                                .filter(i -> {
+                                        StyleColor sc = i.getStyleColor();
+
+                                        String buyerName = sc != null
+                                                        && sc.getStyle() != null
+                                                        && sc.getStyle().getBuyer() != null
+                                                                        ? sc.getStyle().getBuyer().getName()
+                                                                        : null;
+
+                                        return matches(buyerFilter, buyerName);
+                                })
+                                .filter(i -> {
+                                        StyleColor sc = i.getStyleColor();
+
+                                        String styleCode = sc != null && sc.getStyle() != null
+                                                        ? sc.getStyle().getStyleCode()
+                                                        : null;
+
+                                        return matches(styleFilter, styleCode);
+                                })
                                 .filter(i -> matches(lineFilter, i.getLine().getName()))
                                 .sorted(
                                                 Comparator.comparing(
-                                                                (Inspection i) -> safe(i.getBuyerName()),
-                                                                String.CASE_INSENSITIVE_ORDER).thenComparing(
-                                                                                i -> safe(i.getStyleCode()),
+                                                                (Inspection i) -> {
+                                                                        StyleColor sc = i.getStyleColor();
+
+                                                                        return sc != null
+                                                                                        && sc.getStyle() != null
+                                                                                        && sc.getStyle().getBuyer() != null
+                                                                                                        ? safe(sc.getStyle()
+                                                                                                                        .getBuyer()
+                                                                                                                        .getName())
+                                                                                                        : "";
+                                                                },
+                                                                String.CASE_INSENSITIVE_ORDER)
+                                                                .thenComparing(
+                                                                                i -> {
+                                                                                        StyleColor sc = i
+                                                                                                        .getStyleColor();
+
+                                                                                        return sc != null && sc
+                                                                                                        .getStyle() != null
+                                                                                                                        ? safe(sc.getStyle()
+                                                                                                                                        .getStyleCode())
+                                                                                                                        : "";
+                                                                                },
                                                                                 String.CASE_INSENSITIVE_ORDER)
                                                                 .thenComparing(
                                                                                 i -> safe(i.getLine().getName()),
                                                                                 String.CASE_INSENSITIVE_ORDER)
                                                                 .thenComparing(
                                                                                 Inspection::getCreatedAt,
-                                                                                Comparator.nullsLast(
-                                                                                                Comparator.naturalOrder())))
+                                                                                Comparator.nullsLast(Comparator
+                                                                                                .naturalOrder())))
                                 .toList();
 
                 if (isSpecificFilter(buyerFilter) && inspections.isEmpty()) {
@@ -593,8 +636,7 @@ public class PackingPeriodReportExcelService {
 
                 String buyerName = buyer.trim();
 
-                boolean exists = inspectionRepository
-                                .existsByBuyerNameIgnoreCase(buyerName);
+                boolean exists = buyerRepository.existsByNameIgnoreCase(buyerName);
 
                 if (!exists) {
                         throw new BadRequestException(
@@ -613,13 +655,12 @@ public class PackingPeriodReportExcelService {
                 boolean exists;
 
                 if (isSpecificFilter(buyer)) {
-                        exists = inspectionRepository
-                                        .existsByBuyerNameIgnoreCaseAndStyleCodeIgnoreCase(
+                        exists = styleRepository
+                                        .existsByBuyer_NameIgnoreCaseAndStyleCodeIgnoreCase(
                                                         buyer.trim(),
                                                         styleCode);
                 } else {
-                        exists = inspectionRepository
-                                        .existsByStyleCodeIgnoreCase(styleCode);
+                        exists = styleRepository.existsByStyleCodeIgnoreCase(styleCode);
                 }
 
                 if (!exists) {
@@ -1140,7 +1181,7 @@ public class PackingPeriodReportExcelService {
 
                         XSSFFont font = (XSSFFont) workbook.createFont();
 
-                        font.setFontName("Calibri");
+                        font.setFontName("Arial");
                         font.setFontHeightInPoints((short) size);
                         font.setBold(bold);
                         font.setColor(fontColor);

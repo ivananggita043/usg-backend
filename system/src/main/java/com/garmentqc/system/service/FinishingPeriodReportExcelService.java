@@ -48,8 +48,11 @@ import com.garmentqc.system.exception.UnauthorizedException;
 import com.garmentqc.system.model.DefectType;
 import com.garmentqc.system.model.Inspection;
 import com.garmentqc.system.model.InspectionDefect;
+import com.garmentqc.system.model.StyleColor;
 import com.garmentqc.system.model.User;
+import com.garmentqc.system.repository.BuyerRepository;
 import com.garmentqc.system.repository.InspectionRepository;
+import com.garmentqc.system.repository.StyleRepository;
 
 import lombok.RequiredArgsConstructor;
 
@@ -67,6 +70,8 @@ public class FinishingPeriodReportExcelService {
 
         private final InspectionRepository inspectionRepository;
         private final InspectionReportService inspectionReportService;
+        private final BuyerRepository buyerRepository;
+        private final StyleRepository styleRepository;
 
         public byte[] exportWeeklyFinishingExcel(
                         LocalDate date,
@@ -160,10 +165,29 @@ public class FinishingPeriodReportExcelService {
                                 .findByCreatedAtGreaterThanEqualAndCreatedAtLessThan(startInstant, endExclusive)
                                 .stream()
                                 .filter(i -> i.getCreatedAt() != null)
-                                .filter(i -> i.getLine() != null && i.getLine().getSection() != null && FINISHING.equalsIgnoreCase(i.getLine().getSection().name()))
+                                .filter(i -> i.getLine() != null && i.getLine().getSection() != null
+                                                && FINISHING.equalsIgnoreCase(i.getLine().getSection().name()))
                                 .filter(i -> canViewInspection(i, currentUser))
-                                .filter(i -> matches(buyerFilter, i.getBuyerName()))
-                                .filter(i -> matches(styleFilter, i.getStyleCode()))
+                                .filter(i -> {
+                                        StyleColor sc = i.getStyleColor();
+
+                                        String buyerName = sc != null
+                                                        && sc.getStyle() != null
+                                                        && sc.getStyle().getBuyer() != null
+                                                                        ? sc.getStyle().getBuyer().getName()
+                                                                        : null;
+
+                                        return matches(buyerFilter, buyerName);
+                                })
+                                .filter(i -> {
+                                        StyleColor sc = i.getStyleColor();
+
+                                        String styleCode = sc != null && sc.getStyle() != null
+                                                        ? sc.getStyle().getStyleCode()
+                                                        : null;
+
+                                        return matches(styleFilter, styleCode);
+                                })
                                 .sorted(Comparator.comparing(Inspection::getCreatedAt))
                                 .toList();
 
@@ -675,13 +699,11 @@ public class FinishingPeriodReportExcelService {
         }
 
         private void validateBuyerExists(String buyer) {
-
                 if (ALL.equalsIgnoreCase(buyer)) {
                         return;
                 }
 
-                boolean exists = inspectionRepository
-                                .existsByBuyerNameIgnoreCase(buyer);
+                boolean exists = buyerRepository.existsByNameIgnoreCase(buyer);
 
                 if (!exists) {
                         throw new BadRequestException(
@@ -690,21 +712,27 @@ public class FinishingPeriodReportExcelService {
         }
 
         private void validateStyleExists(String style, String buyer) {
-
                 if (ALL.equalsIgnoreCase(style)) {
                         return;
                 }
 
-                boolean exists = inspectionRepository
-                                .existsByBuyerNameIgnoreCaseAndStyleCodeIgnoreCase(
-                                                buyer,
-                                                style);
+                boolean exists;
+
+                if (ALL.equalsIgnoreCase(buyer)) {
+                        exists = styleRepository.existsByStyleCodeIgnoreCase(style);
+                } else {
+                        exists = styleRepository
+                                        .existsByBuyer_NameIgnoreCaseAndStyleCodeIgnoreCase(
+                                                        buyer,
+                                                        style);
+                }
 
                 if (!exists) {
                         throw new BadRequestException(
-                                        "Style '" + style
-                                                        + "' tidak ditemukan untuk buyer '"
-                                                        + buyer + "'.");
+                                        "Style '" + style + "' tidak ditemukan"
+                                                        + (ALL.equalsIgnoreCase(buyer)
+                                                                        ? "."
+                                                                        : " untuk buyer '" + buyer + "'."));
                 }
         }
 

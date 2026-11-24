@@ -25,6 +25,7 @@ import com.garmentqc.system.exception.BadRequestException;
 import com.garmentqc.system.model.Inspection;
 import com.garmentqc.system.model.InspectionDefect;
 import com.garmentqc.system.model.Line;
+import com.garmentqc.system.model.StyleColor;
 import com.garmentqc.system.model.User;
 
 import com.garmentqc.system.repository.InspectionRepository;
@@ -46,12 +47,8 @@ public class InspectionDashboardService {
 
         private final InspectionRepository inspectionRepository;
 
-        public InspectionDashboardResponse getDashboardSummary(
-                        LocalDate startDate,
-                        LocalDate endDate,
-                        String requestedSection,
-                        User currentUser) {
-
+        public InspectionDashboardResponse getDashboardSummary(LocalDate startDate, LocalDate endDate,
+                        String requestedSection, User currentUser) {
                 validateDates(startDate, endDate);
 
                 String section = resolveSection(
@@ -78,29 +75,21 @@ public class InspectionDashboardService {
                                 queryEnd);
 
                 Map<LocalDate, DailyAccumulator> dailyData = new LinkedHashMap<>();
-
                 Map<String, Long> buyerTotals = new HashMap<>();
-
                 Map<BuyerStyleKey, Long> buyerStyleTotals = new HashMap<>();
-
                 Map<BuyerDateKey, Long> buyerDailyTotals = new HashMap<>();
-
                 Map<BuyerStyleDateKey, Long> buyerStyleDailyTotals = new HashMap<>();
-
                 Map<DefectKey, Long> defectTotals = new HashMap<>();
 
                 for (Inspection inspection : inspections) {
-
                         Line line = inspection.getLine();
-
                         if (line == null || line.getSection() == null) {
                                 continue;
                         }
 
                         String inspectionSection = line.getSection().name();
 
-                        if (section != null
-                                        && !section.equals(inspectionSection)) {
+                        if (section != null && !section.equals(inspectionSection)) {
                                 continue;
                         }
 
@@ -119,8 +108,23 @@ public class InspectionDashboardService {
                         boolean isCurrentPeriod = !inspectionDate.isBefore(startDate)
                                         && !inspectionDate.isAfter(endDate);
 
-                        for (InspectionDefect defect : safeDefects(inspection)) {
+                        StyleColor styleColor = inspection.getStyleColor();
 
+                        String buyerName = normalizeName(
+                                        styleColor != null
+                                                        && styleColor.getStyle() != null
+                                                        && styleColor.getStyle().getBuyer() != null
+                                                                        ? styleColor.getStyle().getBuyer().getName()
+                                                                        : null,
+                                        "Unknown Buyer");
+
+                        String styleCode = normalizeName(
+                                        styleColor != null && styleColor.getStyle() != null
+                                                        ? styleColor.getStyle().getStyleCode()
+                                                        : null,
+                                        "Unknown Style");
+
+                        for (InspectionDefect defect : safeDefects(inspection)) {
                                 long defectQuantity = valueOrZero(defect.getQuantity());
 
                                 daily.totalDefects += defectQuantity;
@@ -128,14 +132,6 @@ public class InspectionDashboardService {
                                 if (!isCurrentPeriod || defectQuantity <= 0) {
                                         continue;
                                 }
-
-                                String buyerName = normalizeName(
-                                                inspection.getBuyerName(),
-                                                "Unknown Buyer");
-
-                                String styleCode = normalizeName(
-                                                inspection.getStyleCode(),
-                                                "Unknown Style");
 
                                 buyerTotals.merge(
                                                 buyerName,
@@ -269,7 +265,6 @@ public class InspectionDashboardService {
 
                 return startDate.datesUntil(endDate.plusDays(1))
                                 .map(date -> {
-
                                         DailyAccumulator daily = dailyData.getOrDefault(
                                                         date,
                                                         new DailyAccumulator());
@@ -282,14 +277,10 @@ public class InspectionDashboardService {
                                 .toList();
         }
 
-        private List<DefectTrendPoint> buildDefectTrend(
-                        LocalDate startDate,
-                        LocalDate endDate,
+        private List<DefectTrendPoint> buildDefectTrend(LocalDate startDate, LocalDate endDate,
                         Map<LocalDate, DailyAccumulator> dailyData) {
-
                 return startDate.datesUntil(endDate.plusDays(1))
                                 .map(date -> {
-
                                         DailyAccumulator daily = dailyData.getOrDefault(
                                                         date,
                                                         new DailyAccumulator());
@@ -304,16 +295,12 @@ public class InspectionDashboardService {
                                 .toList();
         }
 
-        private List<BuyerDefectPoint> buildBuyerDefects(
-                        Map<String, Long> buyerTotals,
-                        long totalDefects) {
-
+        private List<BuyerDefectPoint> buildBuyerDefects(Map<String, Long> buyerTotals, long totalDefects) {
                 return buyerTotals.entrySet()
                                 .stream()
-                                .sorted(
-                                                Map.Entry.<String, Long>comparingByValue()
-                                                                .reversed()
-                                                                .thenComparing(Map.Entry.comparingByKey()))
+                                .sorted(Map.Entry.<String, Long>comparingByValue()
+                                                .reversed()
+                                                .thenComparing(Map.Entry.comparingByKey()))
                                 .map(entry -> new BuyerDefectPoint(
                                                 entry.getKey(),
                                                 entry.getValue(),
@@ -328,13 +315,12 @@ public class InspectionDashboardService {
 
                 return buyerDailyTotals.entrySet()
                                 .stream()
-                                .sorted(
-                                                Comparator
-                                                                .comparing(
-                                                                                (Map.Entry<BuyerDateKey, Long> e) -> e
-                                                                                                .getKey().date())
-                                                                .thenComparing(
-                                                                                e -> e.getKey().buyerName()))
+                                .sorted(Comparator
+                                                .comparing(
+                                                                (Map.Entry<BuyerDateKey, Long> e) -> e
+                                                                                .getKey().date())
+                                                .thenComparing(
+                                                                e -> e.getKey().buyerName()))
                                 .map(entry -> new BuyerDefectTrendPoint(
                                                 entry.getKey().date(),
                                                 entry.getKey().buyerName(),
@@ -388,10 +374,7 @@ public class InspectionDashboardService {
                                 .toList();
         }
 
-        private List<TopDefectPoint> buildTopDefects(
-                        Map<DefectKey, Long> defectTotals,
-                        long totalDefects) {
-
+        private List<TopDefectPoint> buildTopDefects(Map<DefectKey, Long> defectTotals, long totalDefects) {
                 return defectTotals.entrySet()
                                 .stream()
                                 .sorted(
@@ -412,17 +395,13 @@ public class InspectionDashboardService {
                                 .toList();
         }
 
-        private PeriodSummary summarizePeriod(
-                        LocalDate startDate,
-                        LocalDate endDate,
+        private PeriodSummary summarizePeriod(LocalDate startDate, LocalDate endDate,
                         Map<LocalDate, DailyAccumulator> dailyData) {
-
                 long totalInspections = 0;
                 long totalQuantityInspect = 0;
                 long totalDefects = 0;
 
                 for (LocalDate date : startDate.datesUntil(endDate.plusDays(1)).toList()) {
-
                         DailyAccumulator daily = dailyData.get(date);
 
                         if (daily == null) {
@@ -443,10 +422,7 @@ public class InspectionDashboardService {
                                                 totalQuantityInspect));
         }
 
-        private Growth calculateGrowth(
-                        PeriodSummary current,
-                        PeriodSummary previous) {
-
+        private Growth calculateGrowth(PeriodSummary current, PeriodSummary previous) {
                 return new Growth(
                                 calculateGrowthPercentage(
                                                 current.totalInspections(),
@@ -462,10 +438,7 @@ public class InspectionDashboardService {
                                                                 - previous.defectPercentage()));
         }
 
-        private Double calculateGrowthPercentage(
-                        long current,
-                        long previous) {
-
+        private Double calculateGrowthPercentage(long current, long previous) {
                 if (previous == 0) {
                         return null;
                 }
@@ -475,10 +448,7 @@ public class InspectionDashboardService {
                 return roundTwoDecimals(growth);
         }
 
-        private double calculatePercentage(
-                        long defects,
-                        long denominator) {
-
+        private double calculatePercentage(long defects, long denominator) {
                 if (denominator <= 0) {
                         return 0.0;
                 }
@@ -491,22 +461,15 @@ public class InspectionDashboardService {
                 return Math.round(value * 100.0) / 100.0;
         }
 
-        private String normalizeName(
-                        String value,
-                        String fallback) {
-
+        private String normalizeName(String value, String fallback) {
                 return value == null || value.isBlank()
                                 ? fallback
                                 : value.trim();
         }
 
-        private String resolveSection(
-                        User currentUser,
-                        String requestedSection) {
-
+        private String resolveSection(User currentUser, String requestedSection) {
                 if (currentUser == null || currentUser.getRole() == null) {
-                        throw new AccessDeniedException(
-                                        "User tidak memiliki akses");
+                        throw new AccessDeniedException("User tidak memiliki akses");
                 }
 
                 String role = currentUser.getRole().name();
@@ -518,19 +481,16 @@ public class InspectionDashboardService {
                 if ("ADMIN".equals(role)) {
 
                         if (currentUser.getSection() == null) {
-                                throw new AccessDeniedException(
-                                                "Admin belum memiliki section");
+                                throw new AccessDeniedException("Admin belum memiliki section");
                         }
 
                         return currentUser.getSection().name();
                 }
 
-                throw new AccessDeniedException(
-                                "Anda tidak memiliki akses ke dashboard");
+                throw new AccessDeniedException("Anda tidak memiliki akses ke dashboard");
         }
 
         private String normalizeSection(String section) {
-
                 if (section == null || section.isBlank()) {
                         return null;
                 }
@@ -542,25 +502,19 @@ public class InspectionDashboardService {
                 }
 
                 if (!ALLOWED_SECTIONS.contains(normalized)) {
-                        throw new BadRequestException(
-                                        "Section harus SEWING, FINISHING, WASHING, PACKING, atau ALL");
+                        throw new BadRequestException("Section harus SEWING, FINISHING, WASHING, PACKING, atau ALL");
                 }
 
                 return normalized;
         }
 
-        private void validateDates(
-                        LocalDate startDate,
-                        LocalDate endDate) {
-
+        private void validateDates(LocalDate startDate, LocalDate endDate) {
                 if (startDate == null || endDate == null) {
-                        throw new BadRequestException(
-                                        "Start date dan end date wajib diisi");
+                        throw new BadRequestException("Start date dan end date wajib diisi");
                 }
 
                 if (startDate.isAfter(endDate)) {
-                        throw new BadRequestException(
-                                        "Start date tidak boleh setelah end date");
+                        throw new BadRequestException("Start date tidak boleh setelah end date");
                 }
         }
 

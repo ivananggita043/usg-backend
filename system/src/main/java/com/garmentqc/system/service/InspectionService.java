@@ -38,17 +38,23 @@ import com.garmentqc.system.exception.BadRequestException;
 import com.garmentqc.system.exception.ResourceNotFoundException;
 import com.garmentqc.system.exception.UnauthorizedException;
 import com.garmentqc.system.model.Attendance;
+import com.garmentqc.system.model.Buyer;
 import com.garmentqc.system.model.DefectArea;
 import com.garmentqc.system.model.DefectType;
 import com.garmentqc.system.model.Inspection;
 import com.garmentqc.system.model.InspectionDefect;
 import com.garmentqc.system.model.Line;
+import com.garmentqc.system.model.Style;
+import com.garmentqc.system.model.StyleColor;
 import com.garmentqc.system.model.User;
 import com.garmentqc.system.repository.AttendanceRepository;
+import com.garmentqc.system.repository.BuyerRepository;
 import com.garmentqc.system.repository.DefectAreaRepository;
 import com.garmentqc.system.repository.DefectTypeRepository;
 import com.garmentqc.system.repository.InspectionRepository;
 import com.garmentqc.system.repository.LineRepository;
+import com.garmentqc.system.repository.StyleColorRepository;
+import com.garmentqc.system.repository.StyleRepository;
 import com.garmentqc.system.repository.UserLineRepository;
 import com.garmentqc.system.repository.UserRepository;
 
@@ -77,6 +83,9 @@ public class InspectionService {
         private final DefectAreaRepository defectAreaRepository;
         private final UserLineRepository userLineRepository;
         private final AttendanceRepository attendanceRepository;
+        private final BuyerRepository buyerRepository;
+        private final StyleRepository styleRepository;
+        private final StyleColorRepository styleColorRepository;
 
         @Transactional
         public InspectionResponse create(InspectionRequest request) {
@@ -125,11 +134,13 @@ public class InspectionService {
                                 section);
 
                 Inspection inspection = new Inspection();
+                StyleColor styleColor = findOrCreateStyleColor(request);
 
                 applyRequestFields(
                                 inspection,
                                 request,
                                 line,
+                                styleColor,
                                 inspectedQuantity,
                                 transferQuantity,
                                 qtyCheckCartonToday,
@@ -231,19 +242,12 @@ public class InspectionService {
                 }
         }
 
-        private void validateDuplicateTimeSlot(
-                        Line line,
-                        String section,
-                        String timeSlot) {
-
-                if (!"SEWING".equals(section)
-                                && !"FINISHING".equals(section)
-                                && !"WASHING".equals(section)) {
+        private void validateDuplicateTimeSlot(Line line, String section, String timeSlot) {
+                if (!"SEWING".equals(section) && !"FINISHING".equals(section) && !"WASHING".equals(section)) {
                         return;
                 }
 
                 LocalDate today = LocalDate.now(ZONE);
-
                 Instant startOfDay = today
                                 .atStartOfDay(ZONE)
                                 .toInstant();
@@ -261,11 +265,9 @@ public class InspectionService {
                                                 endOfDay);
 
                 if (alreadyExists) {
-                        throw new BadRequestException(
-                                        "Inspeksi untuk line " + line.getName()
-                                                        + " pada slot " + timeSlot
-                                                        + " hari ini sudah pernah diinput. "
-                                                        + "Silakan gunakan fitur update untuk mengubah data.");
+                        throw new BadRequestException("Inspeksi untuk line " + line.getName() + " pada slot " + timeSlot
+                                        + " hari ini sudah pernah diinput. "
+                                        + "Silakan gunakan fitur update untuk mengubah data.");
                 }
         }
 
@@ -299,7 +301,6 @@ public class InspectionService {
                 return inspectionRepository.findAll()
                                 .stream().filter(inspection -> canReadInspection(currentUser, inspection))
                                 .filter(inspection -> {
-
                                         if (selectedSection == null) {
                                                 return true;
                                         }
@@ -314,21 +315,15 @@ public class InspectionService {
         }
 
         @Transactional(readOnly = true)
-        public Page<InspectionResponse> getAllPaginated(
-                        String section,
-                        Pageable pageable) {
-
+        public Page<InspectionResponse> getAllPaginated(String section, Pageable pageable) {
                 User currentUser = getCurrentUser();
 
                 String role = currentUser.getRole().name();
                 String selectedSection = normalizeOptional(section);
 
-                if (selectedSection != null
-                                && !SUPPORTED_SECTIONS.contains(selectedSection)) {
-
+                if (selectedSection != null && !SUPPORTED_SECTIONS.contains(selectedSection)) {
                         throw new BadRequestException(
-                                        "Section tidak valid. Pilihan: "
-                                                        + String.join(", ", SUPPORTED_SECTIONS));
+                                        "Section tidak valid. Pilihan: " + String.join(", ", SUPPORTED_SECTIONS));
                 }
 
                 Sort sort = pageable.getSort().isSorted()
@@ -343,11 +338,9 @@ public class InspectionService {
                 Page<String> idPage;
 
                 if (SUPER_ADMIN.equals(role)) {
-
                         if (selectedSection == null) {
-                                throw new BadRequestException(
-                                                "Super Admin wajib memilih section: "
-                                                                + String.join(", ", SUPPORTED_SECTIONS));
+                                throw new BadRequestException("Super Admin wajib memilih section: "
+                                                + String.join(", ", SUPPORTED_SECTIONS));
                         }
 
                         Section selected = Section.valueOf(selectedSection);
@@ -357,17 +350,13 @@ public class InspectionService {
                                         safePageable);
 
                 } else if (ADMIN.equals(role)) {
-
                         if (currentUser.getSection() == null) {
-                                throw new BadRequestException(
-                                                "Admin belum memiliki section");
+                                throw new BadRequestException("Admin belum memiliki section");
                         }
 
                         Section adminSection = currentUser.getSection();
 
-                        if (selectedSection != null
-                                        && !adminSection.name().equals(selectedSection)) {
-
+                        if (selectedSection != null && !adminSection.name().equals(selectedSection)) {
                                 return Page.empty(safePageable);
                         }
 
@@ -376,7 +365,6 @@ public class InspectionService {
                                         safePageable);
 
                 } else if (USER.equals(role)) {
-
                         if (selectedSection == null) {
 
                                 idPage = inspectionRepository.findIdsBySubmittedBy_Id(
@@ -384,7 +372,6 @@ public class InspectionService {
                                                 safePageable);
 
                         } else {
-
                                 Section selected = Section.valueOf(selectedSection);
 
                                 idPage = inspectionRepository.findIdsBySubmittedBy_IdAndLine_Section(
@@ -394,7 +381,6 @@ public class InspectionService {
                         }
 
                 } else if (VISITOR.equals(role)) {
-
                         if (selectedSection == null) {
                                 Page<Inspection> inspectionPage = inspectionRepository.findAll(safePageable);
 
@@ -408,8 +394,7 @@ public class InspectionService {
                                         safePageable);
 
                 } else {
-                        throw new UnauthorizedException(
-                                        "Role tidak memiliki izin untuk melihat inspection");
+                        throw new UnauthorizedException("Role tidak memiliki izin untuk melihat inspection");
                 }
 
                 if (idPage.isEmpty()) {
@@ -419,8 +404,7 @@ public class InspectionService {
                                         idPage.getTotalElements());
                 }
 
-                List<Inspection> inspections = inspectionRepository
-                                .findAllWithDetailsByIdIn(idPage.getContent());
+                List<Inspection> inspections = inspectionRepository.findAllWithDetailsByIdIn(idPage.getContent());
 
                 Map<String, Inspection> inspectionMap = new HashMap<>();
 
@@ -479,6 +463,8 @@ public class InspectionService {
                                 inspectionTimeSlot);
 
                 validateInspectionTimeSlot(section, inspectionTimeSlot);
+                
+                validateDuplicateTimeSlot(line, section, inspectionTimeSlot);
 
                 int inspectedQuantity = validateInspectedQuantity(request.getInspectedQuantity());
 
@@ -487,10 +473,13 @@ public class InspectionService {
                                 inspectedQuantity,
                                 section);
 
+                StyleColor styleColor = findOrCreateStyleColor(request);
+
                 applyRequestFields(
                                 inspection,
                                 request,
                                 line,
+                                styleColor,
                                 inspectedQuantity,
                                 transferQuantity,
                                 qtyCheckCartonToday,
@@ -647,12 +636,13 @@ public class InspectionService {
         }
 
         private void validateRequest(InspectionRequest request) {
+
                 if (request == null) {
                         throw new BadRequestException("Request body wajib diisi");
                 }
 
-                if (request.getBuyerName() == null || request.getBuyerName().isBlank()) {
-                        throw new BadRequestException("Field 'buyerName' wajib diisi");
+                if (request.getBuyerId() == null || request.getBuyerId().isBlank()) {
+                        throw new BadRequestException("Field 'buyerId' wajib diisi");
                 }
 
                 if (request.getStyleCode() == null || request.getStyleCode().isBlank()) {
@@ -667,16 +657,12 @@ public class InspectionService {
                         throw new BadRequestException("Field 'lineId' wajib diisi");
                 }
 
-                if (request.getBuyerName().trim().length() > 255) {
-                        throw new BadRequestException("Field 'buyerName' maksimal 255 karakter");
+                if (request.getStyleCode().trim().length() > 100) {
+                        throw new BadRequestException("Field 'styleCode' maksimal 100 karakter");
                 }
 
-                if (request.getStyleCode().trim().length() > 255) {
-                        throw new BadRequestException("Field 'styleCode' maksimal 255 karakter");
-                }
-
-                if (request.getColorName().trim().length() > 255) {
-                        throw new BadRequestException("Field 'colorName' maksimal 255 karakter");
+                if (request.getColorName().trim().length() > 100) {
+                        throw new BadRequestException("Field 'colorName' maksimal 100 karakter");
                 }
         }
 
@@ -694,7 +680,6 @@ public class InspectionService {
 
         private int validateTransferQuantity(Integer transferQuantity, int inspectedQuantity, String section) {
                 if (transferQuantity == null) {
-
                         if ("SEWING".equals(section)) {
                                 throw new BadRequestException(
                                                 "Field 'transferQuantity' wajib diisi untuk section SEWING");
@@ -715,14 +700,8 @@ public class InspectionService {
                 return transferQuantity;
         }
 
-        private void validateSectionFields(
-                        String section,
-                        String handfeel,
-                        String grade,
-                        String process,
-                        WashingType washingType,
-                        String inspectionTimeSlot) {
-
+        private void validateSectionFields(String section, String handfeel, String grade, String process,
+                        WashingType washingType, String inspectionTimeSlot) {
                 switch (section) {
                         case "SEWING":
                                 if (handfeel != null || grade != null || process != null || washingType != null) {
@@ -805,8 +784,7 @@ public class InspectionService {
 
         private void validateInspectionReadAccess(User user, Inspection inspection) {
                 if (!canReadInspection(user, inspection)) {
-                        throw new AccessDeniedException(
-                                        "Anda tidak memiliki akses untuk melihat data inspection ini");
+                        throw new AccessDeniedException("Anda tidak memiliki akses untuk melihat data inspection ini");
                 }
         }
 
@@ -826,6 +804,7 @@ public class InspectionService {
                         Inspection inspection,
                         InspectionRequest request,
                         Line line,
+                        StyleColor styleColor,
                         int inspectedQuantity,
                         int transferQuantity,
                         Integer qtyCheckCartonToday,
@@ -834,10 +813,7 @@ public class InspectionService {
                         String grade,
                         String process,
                         WashingType washingType) {
-
-                inspection.setBuyerName(request.getBuyerName().trim());
-                inspection.setStyleCode(request.getStyleCode().trim());
-                inspection.setColorName(request.getColorName().trim());
+                inspection.setStyleColor(styleColor);
 
                 inspection.setLine(line);
                 inspection.setInspectQuantity(inspectedQuantity);
@@ -845,35 +821,28 @@ public class InspectionService {
 
                 inspection.setComment(request.getComment());
 
-                inspection.setInspectionTimeSlot(
-                                "PACKING".equals(section)
-                                                ? null
-                                                : normalizeOptional(request.getInspectionTimeSlot()));
+                inspection.setInspectionTimeSlot("PACKING".equals(section)
+                                ? null
+                                : normalizeOptional(request.getInspectionTimeSlot()));
 
                 inspection.setHandfeel(handfeel);
                 inspection.setGrade(grade);
 
-                inspection.setProcess(
-                                "FINISHING".equals(section)
-                                                ? process
-                                                : null);
+                inspection.setProcess("FINISHING".equals(section)
+                                ? process
+                                : null);
 
-                inspection.setWashingType(
-                                "WASHING".equals(section)
-                                                ? washingType
-                                                : null);
+                inspection.setWashingType("WASHING".equals(section)
+                                ? washingType
+                                : null);
 
-                inspection.setQtyCheckCartonToday(
-                                "PACKING".equals(section)
-                                                ? qtyCheckCartonToday
-                                                : null);
+                inspection.setQtyCheckCartonToday("PACKING".equals(section)
+                                ? qtyCheckCartonToday
+                                : null);
         }
 
-        private void replaceDefects(
-                        Inspection inspection,
-                        List<InspectionDefectRequest> defects,
+        private void replaceDefects(Inspection inspection, List<InspectionDefectRequest> defects,
                         int inspectedQuantity) {
-
                 inspection.getInspectionDefects().clear();
 
                 if (defects == null || defects.isEmpty()) {
@@ -885,7 +854,6 @@ public class InspectionService {
                 for (int i = 0; i < defects.size(); i++) {
 
                         InspectionDefectRequest item = defects.get(i);
-
                         if (item == null) {
                                 throw new BadRequestException("Item defects pada indeks " + i + " tidak boleh null");
                         }
@@ -910,15 +878,11 @@ public class InspectionService {
                         DefectType defectType = defectTypeRepository
                                         .findById(defectTypeId.trim())
                                         .orElseThrow(() -> new ResourceNotFoundException(
-                                                        "Defect type dengan ID "
-                                                                        + defectTypeId
-                                                                        + " tidak ditemukan"));
+                                                        "Defect type dengan ID " + defectTypeId + " tidak ditemukan"));
 
                         if (!defectType.isActive()) {
                                 throw new BadRequestException(
-                                                "Defect type dengan ID "
-                                                                + defectTypeId
-                                                                + " sudah tidak aktif");
+                                                "Defect type dengan ID " + defectTypeId + " sudah tidak aktif");
                         }
 
                         try {
@@ -1055,14 +1019,50 @@ public class InspectionService {
                 return Math.round(percentage * 100.0) / 100.0;
         }
 
+        private StyleColor findOrCreateStyleColor(InspectionRequest request) {
+
+                String buyerId = request.getBuyerId().trim();
+                String styleCode = request.getStyleCode().trim()
+                                .toUpperCase(Locale.ROOT);
+                String colorName = request.getColorName().trim()
+                                .toUpperCase(Locale.ROOT);
+
+                Buyer buyer = buyerRepository.findById(buyerId)
+                                .orElseThrow(() -> new ResourceNotFoundException(
+                                                "Buyer dengan ID " + buyerId + " tidak ditemukan"));
+
+                Style style = styleRepository
+                                .findByBuyer_IdAndStyleCodeIgnoreCase(buyer.getId(), styleCode)
+                                .orElseGet(() -> {
+                                        Style newStyle = new Style();
+                                        newStyle.setBuyer(buyer);
+                                        newStyle.setStyleCode(styleCode);
+
+                                        return styleRepository.save(newStyle);
+                                });
+
+                return styleColorRepository
+                                .findByStyle_IdAndColorNameIgnoreCase(style.getId(), colorName)
+                                .orElseGet(() -> {
+                                        StyleColor newColor = new StyleColor();
+                                        newColor.setStyle(style);
+                                        newColor.setColorName(colorName);
+
+                                        return styleColorRepository.save(newColor);
+                                });
+        }
+
         private InspectionResponse toResponse(Inspection inspection) {
-                List<InspectionResponse.DefectItem> defectItems = inspection.getInspectionDefects()
-                                .stream()
-                                .map(d -> new InspectionResponse.DefectItem(
-                                                d.getId(),
-                                                d.getDefectType().getId(),
-                                                d.getQuantity()))
-                                .toList();
+                List<InspectionResponse.DefectItem> defectItems = inspection.getInspectionDefects() == null
+                                ? List.of()
+                                : inspection.getInspectionDefects().stream()
+                                                .map(d -> new InspectionResponse.DefectItem(
+                                                                d.getId(),
+                                                                d.getDefectType() != null
+                                                                                ? d.getDefectType().getId()
+                                                                                : null,
+                                                                d.getQuantity()))
+                                                .toList();
 
                 int totalDefect = defectItems.stream()
                                 .mapToInt(item -> item.getQuantity() == null
@@ -1074,7 +1074,9 @@ public class InspectionService {
                                 ? 0
                                 : inspection.getInspectQuantity();
 
-                double defectPercentage = calculatePercentage(totalDefect, inspectQuantity);
+                double defectPercentage = calculatePercentage(
+                                totalDefect,
+                                inspectQuantity);
 
                 int goodQc = inspectQuantity - totalDefect;
 
@@ -1082,12 +1084,12 @@ public class InspectionService {
 
                 return new InspectionResponse(
                                 inspection.getId(),
-                                inspection.getBuyerName(),
-                                inspection.getStyleCode(),
-                                inspection.getColorName(),
+                                inspection.getStyleColor().getStyle().getBuyer().getName(),
+                                inspection.getStyleColor().getStyle().getStyleCode(),
+                                inspection.getStyleColor().getColorName(),
                                 inspection.getLine().getName(),
                                 inspection.getLine().getSection().name(),
-                                inspection.getInspectQuantity(),
+                                inspectQuantity,
                                 totalDefect,
                                 defectPercentage,
                                 goodQc,
