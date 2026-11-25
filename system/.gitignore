@@ -33,7 +33,6 @@ build/
 .vscode/
 
 ### Environment ###
-application-supabase.yml
 .env
 .env.*
 !.env.example

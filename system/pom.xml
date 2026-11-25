@@ -26,10 +26,8 @@
 		<tag/>
 		<url/>
 	</scm>	
-	<properties>
-    	<java.version>22</java.version>
-    	<maven.compiler.source>22</maven.compiler.source>
-    	<maven.compiler.target>22</maven.compiler.target>
+    <properties>
+        <java.version>22</java.version>
 	</properties>
 	<dependencies>
 		<dependency>
@@ -119,57 +117,64 @@
     		<artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
     		<version>3.0.1</version>
 		</dependency>
-		<dependency>
+		<!-- <dependency>
    	 	<groupId>io.github.cdimascio</groupId>
     		<artifactId>dotenv-java</artifactId>
     		<version>3.2.0</version>
-		</dependency>
+		</dependency> -->
 	</dependencies>
 
 	<build>
-		<plugins>
-			<plugin>
-				<groupId>org.springframework.boot</groupId>
-				<artifactId>spring-boot-maven-plugin</artifactId>
-			</plugin>
-			<plugin>
-				<groupId>org.apache.maven.plugins</groupId>
-				<artifactId>maven-compiler-plugin</artifactId>
-				<executions>
-					<execution>
-						<id>default-compile</id>
-						<phase>compile</phase>
-						<goals>
-							<goal>compile</goal>
-						</goals>
-						<configuration>
-							<annotationProcessorPaths>
-								<path>
-									<groupId>org.projectlombok</groupId>
-									<artifactId>lombok</artifactId>
-									<version>1.18.48</version>
-								</path>
-							</annotationProcessorPaths>
-						</configuration>
-					</execution>
-					<execution>
-						<id>default-testCompile</id>
-						<phase>test-compile</phase>
-						<goals>
-							<goal>testCompile</goal>
-						</goals>
-						<configuration>
-							<annotationProcessorPaths>
-								<path>
-									<groupId>org.projectlombok</groupId>
-									<artifactId>lombok</artifactId>
-								</path>
-							</annotationProcessorPaths>
-						</configuration>
-					</execution>
-				</executions>
-			</plugin>
-		</plugins>
+    <plugins>
+        <plugin>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-maven-plugin</artifactId>
+            <configuration>
+                <layers>
+                    <enabled>true</enabled>
+                </layers>
+            </configuration>
+        </plugin>
+
+        <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-compiler-plugin</artifactId>
+            <executions>
+                <execution>
+                    <id>default-compile</id>
+                    <phase>compile</phase>
+                    <goals>
+                        <goal>compile</goal>
+                    </goals>
+                    <configuration>
+                        <annotationProcessorPaths>
+                            <path>
+                                <groupId>org.projectlombok</groupId>
+                                <artifactId>lombok</artifactId>
+                                <version>1.18.48</version>
+                            </path>
+                        </annotationProcessorPaths>
+                    </configuration>
+                </execution>
+
+                <execution>
+                    <id>default-testCompile</id>
+                    <phase>test-compile</phase>
+                    <goals>
+                        <goal>testCompile</goal>
+                    </goals>
+                    <configuration>
+                        <annotationProcessorPaths>
+                            <path>
+                                <groupId>org.projectlombok</groupId>
+                                <artifactId>lombok</artifactId>
+                            </path>
+                        </annotationProcessorPaths>
+                    </configuration>
+                </execution>
+            </executions>
+        </plugin>
+    </plugins>
 	</build>
 
 </project>
