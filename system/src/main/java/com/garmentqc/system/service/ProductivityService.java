@@ -9,7 +9,9 @@ import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.TreeMap;
 
@@ -19,6 +21,8 @@ import org.springframework.stereotype.Service;
 import com.garmentqc.system.dto.DailyProductivityResponse;
 import com.garmentqc.system.dto.HourlyProductivityResponse;
 import com.garmentqc.system.dto.ProductivitySummaryResponse;
+import com.garmentqc.system.dto.SectionProductivitySummaryResponse;
+import com.garmentqc.system.enums.Section;
 import com.garmentqc.system.exception.BadRequestException;
 import com.garmentqc.system.exception.ResourceNotFoundException;
 import com.garmentqc.system.model.Attendance;
@@ -161,6 +165,285 @@ public class ProductivityService {
 
                 return getLiveHourlyProductivity(
                                 targetUser.getUsername());
+        }
+
+        public List<ProductivitySummaryResponse> getSectionDailyProductivity(
+                        String viewerUsername,
+                        String sectionName,
+                        LocalDate date) {
+
+                Section section = validateProductivitySection(sectionName);
+
+                validateSectionAccess(viewerUsername, section);
+
+                if (date == null) {
+                        throw new BadRequestException("Tanggal wajib diisi.");
+                }
+
+                List<User> users = userRepository.findBySection(section);
+
+                List<ProductivitySummaryResponse> result = new ArrayList<>();
+
+                users.stream()
+                                .filter(user -> user.getRole() != null
+                                                && "USER".equals(user.getRole().name()))
+                                .sorted(Comparator.comparing(
+                                                User::getNama,
+                                                Comparator.nullsLast(String.CASE_INSENSITIVE_ORDER)))
+                                .forEach(user -> {
+                                        Attendance attendance = attendanceRepository
+                                                        .findByUser_IdAndAttendanceDate(user.getId(), date)
+                                                        .orElse(null);
+
+                                        if (attendance == null
+                                                        || attendance.getCheckInAt() == null
+                                                        || attendance.getCheckOutAt() == null
+                                                        || !attendance.getCheckOutAt()
+                                                                        .isAfter(attendance.getCheckInAt())) {
+                                                return;
+                                        }
+
+                                        result.add(getDailyProductivity(user.getUsername(), date)
+                                                        .summary());
+                                });
+
+                return result;
+        }
+
+        public List<ProductivitySummaryResponse> getSectionLiveProductivity(
+                        String viewerUsername,
+                        String sectionName) {
+
+                Section section = validateProductivitySection(sectionName);
+
+                validateSectionAccess(viewerUsername, section);
+
+                LocalDate today = LocalDate.now(ZONE);
+                Instant now = Instant.now();
+
+                List<User> users = userRepository.findBySection(section);
+
+                List<ProductivitySummaryResponse> result = new ArrayList<>();
+
+                users.stream()
+                                .filter(user -> user.getRole() != null
+                                                && "USER".equals(user.getRole().name()))
+                                .sorted(Comparator.comparing(
+                                                User::getNama,
+                                                Comparator.nullsLast(String.CASE_INSENSITIVE_ORDER)))
+                                .forEach(user -> {
+                                        Attendance attendance = attendanceRepository
+                                                        .findByUser_IdAndAttendanceDate(user.getId(), today)
+                                                        .orElse(null);
+
+                                        if (attendance == null
+                                                        || attendance.getCheckInAt() == null
+                                                        || attendance.getCheckOutAt() != null
+                                                        || !now.isAfter(attendance.getCheckInAt())) {
+                                                return;
+                                        }
+
+                                        result.add(getLiveProductivitySummary(user.getUsername()));
+                                });
+
+                return result;
+        }
+
+        public SectionProductivitySummaryResponse getSectionDailySummary(
+                        String viewerUsername,
+                        String sectionName,
+                        LocalDate date) {
+
+                Section section = validateProductivitySection(sectionName);
+                validateSectionAccess(viewerUsername, section);
+
+                if (date == null) {
+                        throw new BadRequestException("Tanggal wajib diisi.");
+                }
+
+                List<User> users = userRepository.findBySection(section);
+
+                int completedOperators = 0;
+                int totalInspected = 0;
+                double totalTarget = 0;
+
+                for (User user : users) {
+
+                        if (user.getRole() == null
+                                        || !"USER".equals(user.getRole().name())) {
+                                continue;
+                        }
+
+                        Attendance attendance = attendanceRepository
+                                        .findByUser_IdAndAttendanceDate(user.getId(), date)
+                                        .orElse(null);
+
+                        if (attendance == null
+                                        || attendance.getCheckInAt() == null
+                                        || attendance.getCheckOutAt() == null
+                                        || !attendance.getCheckOutAt()
+                                                        .isAfter(attendance.getCheckInAt())) {
+                                continue;
+                        }
+
+                        ProductivitySummaryResponse summary = getDailyProductivity(user.getUsername(), date).summary();
+
+                        totalInspected += summary.inspectedQuantity() != null
+                                        ? summary.inspectedQuantity()
+                                        : 0;
+
+                        totalTarget += summary.targetQuantity() != null
+                                        ? summary.targetQuantity()
+                                        : 0;
+
+                        completedOperators++;
+                }
+
+                double productivityRate = calculateRate(
+                                totalInspected, totalTarget);
+
+                int remainingQuantity = Math.max(
+                                0,
+                                (int) Math.ceil(totalTarget - totalInspected));
+
+                return new SectionProductivitySummaryResponse(
+                                section.name(),
+                                date.toString(),
+                                completedOperators,
+                                0,
+                                completedOperators,
+                                totalInspected,
+                                (int) Math.round(totalTarget),
+                                round(productivityRate),
+                                remainingQuantity);
+        }
+
+        public SectionProductivitySummaryResponse getSectionLiveSummary(
+                        String viewerUsername,
+                        String sectionName) {
+
+                Section section = validateProductivitySection(sectionName);
+                validateSectionAccess(viewerUsername, section);
+
+                LocalDate today = LocalDate.now(ZONE);
+                Instant now = Instant.now();
+
+                List<User> users = userRepository.findBySection(section);
+
+                int activeOperators = 0;
+                int completedOperators = 0;
+                int totalInspected = 0;
+                int totalTarget = 0;
+
+                for (User user : users) {
+
+                        if (user.getRole() == null
+                                        || !"USER".equals(user.getRole().name())) {
+                                continue;
+                        }
+
+                        Attendance attendance = attendanceRepository
+                                        .findByUser_IdAndAttendanceDate(user.getId(), today)
+                                        .orElse(null);
+
+                        if (attendance == null
+                                        || attendance.getCheckInAt() == null
+                                        || !attendance.getCheckInAt().isBefore(now)) {
+                                continue;
+                        }
+
+                        ProductivitySummaryResponse summary;
+
+                        if (attendance.getCheckOutAt() != null) {
+
+                                if (!attendance.getCheckOutAt()
+                                                .isAfter(attendance.getCheckInAt())) {
+                                        continue;
+                                }
+
+                                summary = getDailyProductivity(
+                                                user.getUsername(), today).summary();
+
+                                completedOperators++;
+
+                        } else {
+
+                                summary = getLiveProductivitySummary(
+                                                user.getUsername());
+
+                                activeOperators++;
+                        }
+
+                        totalInspected += summary.inspectedQuantity();
+                        totalTarget += summary.targetQuantity();
+                }
+
+                int totalOperators = activeOperators + completedOperators;
+
+                double productivityRate = calculateRate(
+                                totalInspected,
+                                totalTarget);
+
+                int remainingQuantity = Math.max(
+                                0,
+                                totalTarget - totalInspected);
+
+                return new SectionProductivitySummaryResponse(
+                                section.name(),
+                                today.toString(),
+                                totalOperators,
+                                activeOperators,
+                                completedOperators,
+                                totalInspected,
+                                totalTarget,
+                                round(productivityRate),
+                                remainingQuantity);
+        }
+
+        private Section validateProductivitySection(String sectionName) {
+                if (sectionName == null || sectionName.isBlank()) {
+                        throw new BadRequestException("Section wajib diisi.");
+                }
+
+                Section section;
+
+                try {
+                        section = Section.valueOf(
+                                        sectionName.trim().toUpperCase(Locale.ROOT));
+                } catch (IllegalArgumentException e) {
+                        throw new BadRequestException("Section tidak valid.");
+                }
+
+                if (section != Section.SEWING
+                                && section != Section.FINISHING
+                                && section != Section.WASHING) {
+                        throw new BadRequestException(
+                                        "Produktivitas hanya tersedia untuk section SEWING, FINISHING, dan WASHING.");
+                }
+
+                return section;
+        }
+
+        private void validateSectionAccess(String username, Section requestedSection) {
+                User currentUser = userRepository.findByUsername(username)
+                                .orElseThrow(() -> new BadRequestException("User tidak ditemukan."));
+
+                String role = currentUser.getRole().name();
+
+                if ("SUPER_ADMIN".equals(role)) {
+                        return;
+                }
+
+                if ("ADMIN".equals(role)) {
+                        if (currentUser.getSection() != requestedSection) {
+                                throw new AccessDeniedException(
+                                                "Kamu hanya dapat melihat produktivitas section sendiri.");
+                        }
+                        return;
+                }
+
+                throw new AccessDeniedException(
+                                "Kamu tidak memiliki akses.");
         }
 
         private User validateProductivityAccess(String viewerUsername, String targetUserId) {

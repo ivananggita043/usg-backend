@@ -1,3 +1,4 @@
+
 package com.garmentqc.system.controller.superadmin;
 
 import java.time.LocalDate;
@@ -11,47 +12,68 @@ import org.springframework.web.bind.annotation.*;
 import com.garmentqc.system.dto.DailyProductivityResponse;
 import com.garmentqc.system.dto.HourlyProductivityResponse;
 import com.garmentqc.system.dto.ProductivitySummaryResponse;
+import com.garmentqc.system.dto.SectionProductivitySummaryResponse;
 import com.garmentqc.system.service.ProductivityService;
 
 import lombok.RequiredArgsConstructor;
 
 @RestController
-@RequestMapping("/super-admin/management/productivity/{userId}")
+@RequestMapping("/super-admin/management/productivity")
 @RequiredArgsConstructor
-@PreAuthorize("hasRole('SUPER_ADMIN')")
+@PreAuthorize("hasAnyRole('SUPER_ADMIN')")
 public class ProductivityManagementSuperAdminController {
 
-    private final ProductivityService productivityService;
+        private final ProductivityService productivityService;
 
-    @GetMapping("/daily")
-    public DailyProductivityResponse getDaily(
-            Authentication authentication,
-            @PathVariable String userId,
-            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
+        @GetMapping("/section/{section}/daily")
+        public List<ProductivitySummaryResponse> getDailyBySection(Authentication authentication,
+                        @PathVariable String section,
+                        @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
+                return productivityService.getSectionDailyProductivity(authentication.getName(), section, date);
+        }
 
-        return productivityService.getDailyProductivityForAdmin(
-                authentication.getName(),
-                userId,
-                date);
-    }
+        @GetMapping("/section/{section}/daily/summary")
+        public SectionProductivitySummaryResponse getDailySectionSummary(
+                        Authentication authentication,
+                        @PathVariable String section,
+                        @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
 
-    @GetMapping("/live/summary")
-    public ProductivitySummaryResponse getLiveSummary(
-            Authentication authentication,
-            @PathVariable String userId) {
+                return productivityService.getSectionDailySummary(
+                                authentication.getName(),
+                                section,
+                                date);
+        }
 
-        return productivityService.getLiveProductivitySummaryForAdmin(
-                authentication.getName(),
-                userId);
-    }
+        @GetMapping("/section/{section}/live")
+        public List<ProductivitySummaryResponse> getLiveBySection(Authentication authentication,
+                        @PathVariable String section) {
+                return productivityService.getSectionLiveProductivity(authentication.getName(), section);
+        }
 
-    @GetMapping("/live/hourly")
-    public List<HourlyProductivityResponse> getLiveHourly(
-            Authentication authentication,
-            @PathVariable String userId) {
+        @GetMapping("/section/{section}/live/summary")
+        public SectionProductivitySummaryResponse getLiveSectionSummary(
+                        Authentication authentication,
+                        @PathVariable String section) {
 
-        return productivityService.getLiveHourlyProductivityForAdmin(
-                authentication.getName(),
-                userId);
-    }
+                return productivityService.getSectionLiveSummary(
+                                authentication.getName(),
+                                section);
+        }
+
+        @GetMapping("/{userId}/daily")
+        public DailyProductivityResponse getDaily(Authentication authentication, @PathVariable String userId,
+                        @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
+                return productivityService.getDailyProductivityForAdmin(authentication.getName(), userId, date);
+        }
+
+        @GetMapping("/{userId}/live/summary")
+        public ProductivitySummaryResponse getLiveSummary(Authentication authentication, @PathVariable String userId) {
+                return productivityService.getLiveProductivitySummaryForAdmin(authentication.getName(), userId);
+        }
+
+        @GetMapping("/{userId}/live/hourly")
+        public List<HourlyProductivityResponse> getLiveHourly(Authentication authentication,
+                        @PathVariable String userId) {
+                return productivityService.getLiveHourlyProductivityForAdmin(authentication.getName(), userId);
+        }
 }

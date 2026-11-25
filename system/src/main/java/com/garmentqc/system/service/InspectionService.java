@@ -463,7 +463,7 @@ public class InspectionService {
                                 inspectionTimeSlot);
 
                 validateInspectionTimeSlot(section, inspectionTimeSlot);
-                
+
                 validateDuplicateTimeSlot(line, section, inspectionTimeSlot);
 
                 int inspectedQuantity = validateInspectedQuantity(request.getInspectedQuantity());
@@ -553,6 +553,26 @@ public class InspectionService {
                 }
 
                 throw new UnauthorizedException("Role tidak memiliki izin untuk membuat atau mengubah inspection");
+        }
+
+        private Section getCurrentInspectionSection() {
+                User currentUser = getCurrentUser();
+
+                String role = currentUser.getRole().name();
+
+                if (SUPER_ADMIN.equals(role) || VISITOR.equals(role)) {
+                        return null;
+                }
+
+                if (ADMIN.equals(role) || USER.equals(role)) {
+                        if (currentUser.getSection() == null) {
+                                throw new BadRequestException("User belum memiliki section");
+                        }
+
+                        return currentUser.getSection();
+                }
+
+                throw new UnauthorizedException("Role tidak memiliki akses pencarian defect");
         }
 
         private void validateInspectionAccess(User user, Inspection inspection) {
@@ -919,11 +939,39 @@ public class InspectionService {
 
         @Transactional(readOnly = true)
         public List<DefectArea> searchDefectAreas(String keyword) {
-                if (keyword == null || keyword.isBlank()) {
-                        return defectAreaRepository.findByActiveTrueOrderByNameAsc();
+                Section section = getCurrentInspectionSection();
+
+                List<DefectType> defectTypes;
+
+                if (section == null) {
+                        defectTypes = defectTypeRepository.findByActiveTrue();
+                } else {
+                        defectTypes = defectTypeRepository.findBySectionAndActiveTrueOrderByNameAsc(section);
                 }
 
-                return defectAreaRepository.findByNameContainingIgnoreCaseAndActiveTrueOrderByNameAsc(keyword.trim());
+                String key = normalizeOptional(keyword);
+
+                Map<String, DefectArea> areas = new HashMap<>();
+
+                for (DefectType type : defectTypes) {
+                        DefectArea area = type.getDefectArea();
+
+                        if (area == null || !area.isActive()) {
+                                continue;
+                        }
+
+                        if (key != null && !area.getName().toUpperCase(Locale.ROOT).contains(key)) {
+                                continue;
+                        }
+
+                        areas.putIfAbsent(area.getId(), area);
+                }
+
+                return areas.values().stream()
+                                .sorted(Comparator.comparing(
+                                                DefectArea::getName,
+                                                String.CASE_INSENSITIVE_ORDER))
+                                .toList();
         }
 
         @Transactional(readOnly = true)
@@ -943,14 +991,25 @@ public class InspectionService {
                         throw new BadRequestException("Defect area tidak aktif");
                 }
 
-                if (keyword == null || keyword.isBlank()) {
-                        return defectTypeRepository.findByDefectAreaAndActiveTrueOrderByNameAsc(area);
+                Section section = getCurrentInspectionSection();
+
+                List<DefectType> types;
+
+                if (section == null) {
+                        types = defectTypeRepository.findByDefectAreaAndActiveTrueOrderByNameAsc(area);
+                } else {
+                        types = defectTypeRepository.findBySectionAndDefectAreaAndActiveTrue(section, area);
                 }
 
-                return defectTypeRepository
-                                .findByDefectArea_IdAndNameContainingIgnoreCaseAndActiveTrue(
-                                                defectAreaId.trim(),
-                                                keyword.trim());
+                String key = normalizeOptional(keyword);
+
+                return types.stream()
+                                .filter(type -> key == null
+                                                || type.getName().toUpperCase(Locale.ROOT).contains(key))
+                                .sorted(Comparator.comparing(
+                                                DefectType::getName,
+                                                String.CASE_INSENSITIVE_ORDER))
+                                .toList();
         }
 
         @Transactional(readOnly = true)
@@ -958,42 +1017,61 @@ public class InspectionService {
                         String defectAreaId,
                         String keyword) {
 
-                String areaId = (defectAreaId == null || defectAreaId.isBlank())
-                                ? null
-                                : defectAreaId.trim();
+                Section section = getCurrentInspectionSection();
 
-                String key = (keyword == null || keyword.isBlank())
-                                ? null
-                                : keyword.trim();
+                String areaId = normalizeOptional(defectAreaId);
+                String key = normalizeOptional(keyword);
 
                 List<DefectType> types;
 
-                if (areaId != null) {
+                if (section == null) {
+                        if (areaId != null) {
+                                DefectArea area = defectAreaRepository.findById(areaId)
+                                                .orElseThrow(() -> new ResourceNotFoundException(
+                                                                "Defect area tidak ditemukan"));
 
-                        DefectArea area = defectAreaRepository
-                                        .findById(areaId)
-                                        .orElseThrow(() -> new ResourceNotFoundException(
-                                                        "Defect area tidak ditemukan"));
+                                if (!area.isActive()) {
+                                        throw new BadRequestException("Defect area tidak aktif");
+                                }
 
-                        if (!area.isActive()) {
-                                throw new BadRequestException("Defect area tidak aktif");
+                                types = key == null
+                                                ? defectTypeRepository.findByActiveTrueAndDefectArea_Id(areaId)
+                                                : defectTypeRepository
+                                                                .findByDefectArea_IdAndNameContainingIgnoreCaseAndActiveTrue(
+                                                                                areaId, key);
+                        } else {
+                                types = key == null
+                                                ? defectTypeRepository.findByActiveTrue()
+                                                : defectTypeRepository.findByActiveTrueAndNameContainingIgnoreCase(key);
                         }
-
-                        types = key == null
-                                        ? defectTypeRepository.findByActiveTrueAndDefectArea_Id(areaId)
-                                        : defectTypeRepository
-                                                        .findByDefectArea_IdAndNameContainingIgnoreCaseAndActiveTrue(
-                                                                        areaId, key);
-
                 } else {
-                        types = key == null
-                                        ? defectTypeRepository.findByActiveTrue()
-                                        : defectTypeRepository.findByActiveTrueAndNameContainingIgnoreCase(key);
+                        if (areaId != null) {
+                                DefectArea area = defectAreaRepository.findById(areaId)
+                                                .orElseThrow(() -> new ResourceNotFoundException(
+                                                                "Defect area tidak ditemukan"));
+
+                                if (!area.isActive()) {
+                                        throw new BadRequestException("Defect area tidak aktif");
+                                }
+
+                                types = key == null
+                                                ? defectTypeRepository.findBySectionAndDefectAreaAndActiveTrue(section,
+                                                                area)
+                                                : defectTypeRepository
+                                                                .findBySectionAndDefectAreaAndActiveTrueAndNameContainingIgnoreCaseOrderByNameAsc(
+                                                                                section, area, key);
+
+                        } else {
+                                types = key == null
+                                                ? defectTypeRepository.findBySectionAndActiveTrueOrderByNameAsc(section)
+                                                : defectTypeRepository
+                                                                .findBySectionAndActiveTrueAndNameContainingIgnoreCaseOrderByNameAsc(
+                                                                                section, key);
+                        }
                 }
 
                 return types.stream()
-                                .filter(t -> t.getDefectArea() == null
-                                                || t.getDefectArea().isActive())
+                                .filter(t -> t.getDefectArea() == null || t.getDefectArea().isActive())
                                 .sorted(Comparator
                                                 .comparing(
                                                                 (DefectType t) -> t.getDefectArea() == null

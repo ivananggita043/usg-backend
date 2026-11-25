@@ -18,4 +18,6 @@ public interface BuyerRepository extends JpaRepository<Buyer, String> {
     List<Buyer> findAllByOrderByNameAsc();
 
     Page<Buyer> findAllByOrderByNameAsc(Pageable pageable);
+
+    List<Buyer> findTop20ByNameContainingIgnoreCaseOrderByNameAsc(String keyword);
 }

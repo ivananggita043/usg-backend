@@ -18,9 +18,11 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.garmentqc.system.dto.BuyerResponse;
 import com.garmentqc.system.dto.DefectSearchResponse;
 import com.garmentqc.system.dto.InspectionRequest;
 import com.garmentqc.system.dto.InspectionResponse;
+import com.garmentqc.system.service.BuyerService;
 import com.garmentqc.system.service.InspectionService;
 
 import lombok.RequiredArgsConstructor;
@@ -32,6 +34,7 @@ import lombok.RequiredArgsConstructor;
 public class InspectionUserController {
 
     private final InspectionService inspectionService;
+    private final BuyerService buyerService;
 
     @PostMapping
     public ResponseEntity<InspectionResponse> create(@RequestBody InspectionRequest request) {
@@ -41,6 +44,11 @@ public class InspectionUserController {
     @GetMapping("/all")
     public ResponseEntity<List<InspectionResponse>> getAll(@RequestParam(required = false) String section) {
         return ResponseEntity.ok(inspectionService.getAll(section));
+    }
+
+    @GetMapping("/all/buyer")
+    public ResponseEntity<?> getAllBuyers() {
+        return ResponseEntity.ok(buyerService.getAllBuyers());
     }
 
     @GetMapping("/defects/search")
@@ -58,6 +66,12 @@ public class InspectionUserController {
                         .stream()
                         .map(a -> new DefectSearchResponse.Area(a.getId(), a.getName()))
                         .toList());
+    }
+
+    @GetMapping("/buyers/search")
+    public ResponseEntity<List<BuyerResponse>> searchBuyers(
+            @RequestParam(required = false) String keyword) {
+        return ResponseEntity.ok(buyerService.searchBuyers(keyword));
     }
 
     @GetMapping("/{id}")

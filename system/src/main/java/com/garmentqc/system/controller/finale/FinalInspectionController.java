@@ -23,6 +23,7 @@ import com.garmentqc.system.dto.FinalInspectionReportResponse;
 import com.garmentqc.system.dto.FinalInspectionRequest;
 import com.garmentqc.system.dto.FinalInspectionResponse;
 import com.garmentqc.system.model.User;
+import com.garmentqc.system.service.BuyerService;
 import com.garmentqc.system.service.FinalInspectionExcelService;
 import com.garmentqc.system.service.FinalInspectionReportService;
 import com.garmentqc.system.service.FinalInspectionService;
@@ -39,6 +40,7 @@ public class FinalInspectionController {
     private final FinalInspectionService finalInspectionService;
     private final FinalInspectionReportService finalInspectionReportService;
     private final FinalInspectionExcelService finalInspectionExcelService;
+    private final BuyerService buyerService;
 
     @PostMapping
     public ResponseEntity<FinalInspectionResponse> create(@Valid @RequestBody FinalInspectionRequest request,

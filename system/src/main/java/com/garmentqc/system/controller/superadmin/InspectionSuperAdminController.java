@@ -19,21 +19,23 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.garmentqc.system.dto.BuyerResponse;
 import com.garmentqc.system.dto.DefectSearchResponse;
 import com.garmentqc.system.dto.InspectionRequest;
 import com.garmentqc.system.dto.InspectionResponse;
+import com.garmentqc.system.service.BuyerService;
 import com.garmentqc.system.service.InspectionService;
+
+import lombok.RequiredArgsConstructor;
 
 @RestController
 @RequestMapping("/super-admin/inspections")
 @PreAuthorize("hasRole('SUPER_ADMIN')")
+@RequiredArgsConstructor
 public class InspectionSuperAdminController {
 
     private final InspectionService inspectionService;
-
-    public InspectionSuperAdminController(InspectionService inspectionService) {
-        this.inspectionService = inspectionService;
-    }
+    private final BuyerService buyerService;
 
     @PostMapping
     public ResponseEntity<InspectionResponse> create(@RequestBody InspectionRequest request) {
@@ -63,6 +65,11 @@ public class InspectionSuperAdminController {
         return ResponseEntity.noContent().build();
     }
 
+            @GetMapping("/all/buyer")
+    public ResponseEntity<?> getAllBuyers() {
+        return ResponseEntity.ok(buyerService.getAllBuyers());
+    }
+
     @GetMapping("/defects/search")
     public ResponseEntity<List<DefectSearchResponse>> searchDefects(
             @RequestParam(required = false) String defectAreaId,
@@ -78,6 +85,12 @@ public class InspectionSuperAdminController {
                         .stream()
                         .map(a -> new DefectSearchResponse.Area(a.getId(), a.getName()))
                         .toList());
+    }
+
+    @GetMapping("/buyers/search")
+    public ResponseEntity<List<BuyerResponse>> searchBuyers(
+            @RequestParam(required = false) String keyword) {
+        return ResponseEntity.ok(buyerService.searchBuyers(keyword));
     }
 
     @GetMapping("/paginated")

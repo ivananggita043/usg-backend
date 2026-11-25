@@ -41,6 +41,22 @@ public class BuyerService {
     }
 
     @Transactional(readOnly = true)
+    public List<BuyerResponse> searchBuyers(String keyword) {
+        if (keyword == null || keyword.isBlank()) {
+            return buyerRepository.findAllByOrderByNameAsc()
+                    .stream()
+                    .map(this::toResponse)
+                    .toList();
+        }
+
+        return buyerRepository
+                .findTop20ByNameContainingIgnoreCaseOrderByNameAsc(keyword.trim())
+                .stream()
+                .map(this::toResponse)
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
     public List<BuyerResponse> getAllBuyers() {
 
         return buyerRepository.findAllByOrderByNameAsc()

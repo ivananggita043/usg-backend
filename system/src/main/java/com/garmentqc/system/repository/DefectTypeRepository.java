@@ -59,5 +59,14 @@ public interface DefectTypeRepository extends JpaRepository<DefectType, String> 
 
         List<DefectType> findBySectionAndActiveTrueOrderByNameAsc(Section section);
 
-List<DefectType> findBySectionAndActiveTrueAndNameContainingIgnoreCaseOrderByNameAsc(Section section, String name);
+        List<DefectType> findBySectionAndActiveTrueAndNameContainingIgnoreCaseOrderByNameAsc(Section section,
+                        String name);
+
+        @EntityGraph(attributePaths = "defectArea")
+        List<DefectType> findBySectionAndDefectArea_IdAndActiveTrueAndNameContainingIgnoreCaseOrderByNameAsc(
+                        Section section, String defectAreaId, String name);
+
+        @EntityGraph(attributePaths = "defectArea")
+        List<DefectType> findBySectionAndDefectAreaAndActiveTrueAndNameContainingIgnoreCaseOrderByNameAsc(
+                        Section section, DefectArea defectArea, String name);
 }
