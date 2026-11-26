@@ -6,6 +6,8 @@ import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.hibernate.annotations.BatchSize;
+
 import com.garmentqc.system.enums.FinalInspectionPurpose;
 import com.garmentqc.system.enums.FinalInspectionResult;
 
@@ -62,12 +64,17 @@ public class FinalInspection extends BaseEntity {
 
     @Column(name = "total_defect")
     private Integer totalDefect;
-
     @OneToMany(mappedBy = "finalInspection", cascade = CascadeType.ALL, orphanRemoval = true)
+    @BatchSize(size = 50)
     private List<FinalInspectionStyle> styles = new ArrayList<>();
 
     @OneToMany(mappedBy = "finalInspection", cascade = CascadeType.ALL, orphanRemoval = true)
+    @BatchSize(size = 50)
     private List<FinalInspectionAccessory> accessories = new ArrayList<>();
+
+    @OneToMany(mappedBy = "finalInspection", cascade = CascadeType.ALL, orphanRemoval = true)
+    @BatchSize(size = 50)
+    private List<FinalInspectionDefect> defects = new ArrayList<>();
 
     @Column(name = "additional_comment", columnDefinition = "TEXT")
     private String additionalComment;
@@ -106,6 +113,4 @@ public class FinalInspection extends BaseEntity {
     @Column(name = "total_minor")
     private Integer totalMinor;
 
-    @OneToMany(mappedBy = "finalInspection", cascade = CascadeType.ALL, orphanRemoval = true)
-    private List<FinalInspectionDefect> defects = new ArrayList<>();
 }

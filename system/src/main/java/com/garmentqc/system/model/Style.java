@@ -3,6 +3,8 @@ package com.garmentqc.system.model;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.hibernate.annotations.BatchSize;
+
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -24,6 +26,7 @@ import lombok.Setter;
 @Getter
 @Setter
 @NoArgsConstructor
+@BatchSize(size = 50)
 public class Style extends BaseEntity {
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)

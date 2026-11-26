@@ -150,6 +150,8 @@ public class CuttingReportService {
                                                 start,
                                                 endExclusive);
 
+                Map<String, List<CuttingInspectionItem>> itemsByInspectionId = getItemsByInspectionId(inspections);
+
                 Map<CuttingProcessCheck, ProcessAccumulator> processMap = new EnumMap<>(CuttingProcessCheck.class);
 
                 long totalItems = 0;
@@ -166,7 +168,9 @@ public class CuttingReportService {
 
                         summary.totalInspections++;
 
-                        List<CuttingInspectionItem> items = itemRepository.findByCuttingInspection(inspection);
+                        List<CuttingInspectionItem> items = itemsByInspectionId.getOrDefault(
+                                        inspection.getId(),
+                                        List.of());
 
                         for (CuttingInspectionItem item : items) {
 
@@ -287,11 +291,15 @@ public class CuttingReportService {
                                                 start,
                                                 endExclusive);
 
+                Map<String, List<CuttingInspectionItem>> itemsByInspectionId = getItemsByInspectionId(inspections);
+
                 Map<GroupKey, GroupAccumulator> groups = new LinkedHashMap<>();
 
                 for (CuttingInspection inspection : inspections) {
 
-                        List<CuttingInspectionItem> items = itemRepository.findByCuttingInspection(inspection);
+                        List<CuttingInspectionItem> items = itemsByInspectionId.getOrDefault(
+                                        inspection.getId(),
+                                        List.of());
 
                         for (CuttingInspectionItem item : items) {
 
@@ -373,6 +381,30 @@ public class CuttingReportService {
                                 startDate,
                                 endDate,
                                 summaries);
+        }
+
+        private Map<String, List<CuttingInspectionItem>> getItemsByInspectionId(
+                        List<CuttingInspection> inspections) {
+
+                Map<String, List<CuttingInspectionItem>> itemsByInspectionId = new LinkedHashMap<>();
+
+                if (inspections.isEmpty()) {
+                        return itemsByInspectionId;
+                }
+
+                List<CuttingInspectionItem> allItems = itemRepository
+                                .findAllWithDetailsByCuttingInspectionIn(inspections);
+
+                for (CuttingInspectionItem item : allItems) {
+
+                        String inspectionId = item.getCuttingInspection().getId();
+
+                        itemsByInspectionId
+                                        .computeIfAbsent(inspectionId, key -> new ArrayList<>())
+                                        .add(item);
+                }
+
+                return itemsByInspectionId;
         }
 
         private double calculatePercentage(

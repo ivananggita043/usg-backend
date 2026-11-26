@@ -16,11 +16,16 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 
+import org.springframework.jdbc.core.JdbcTemplate;
+import javax.sql.DataSource;
+
+import com.zaxxer.hikari.HikariDataSource;
+import com.zaxxer.hikari.HikariPoolMXBean;
+
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Sort;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.authentication.AnonymousAuthenticationToken;
 import org.springframework.security.core.Authentication;
@@ -86,6 +91,8 @@ public class InspectionService {
         private final BuyerRepository buyerRepository;
         private final StyleRepository styleRepository;
         private final StyleColorRepository styleColorRepository;
+        private final DataSource dataSource;
+        private final JdbcTemplate jdbcTemplate;
 
         @Transactional
         public InspectionResponse create(InspectionRequest request) {
@@ -316,6 +323,19 @@ public class InspectionService {
 
         @Transactional(readOnly = true)
         public Page<InspectionResponse> getAllPaginated(String section, Pageable pageable) {
+                // for (int i = 1; i <= 5; i++) {
+                // long dbTestStart = System.nanoTime();
+
+                // jdbcTemplate.queryForObject("SELECT 1", Integer.class);
+
+                // long dbTestElapsed = (System.nanoTime() - dbTestStart) / 1_000_000;
+
+                // System.out.println(
+                // "[DB TEST] SELECT 1 #" + i + ": " + dbTestElapsed + " ms");
+                // }
+
+                long totalStart = System.nanoTime();
+
                 User currentUser = getCurrentUser();
 
                 String role = currentUser.getRole().name();
@@ -323,24 +343,25 @@ public class InspectionService {
 
                 if (selectedSection != null && !SUPPORTED_SECTIONS.contains(selectedSection)) {
                         throw new BadRequestException(
-                                        "Section tidak valid. Pilihan: " + String.join(", ", SUPPORTED_SECTIONS));
+                                        "Section tidak valid. Pilihan: "
+                                                        + String.join(", ", SUPPORTED_SECTIONS));
                 }
-
-                Sort sort = pageable.getSort().isSorted()
-                                ? pageable.getSort()
-                                : Sort.by(Sort.Direction.DESC, Inspection::getCreatedAt);
-
                 Pageable safePageable = PageRequest.of(
                                 Math.max(pageable.getPageNumber(), 0),
-                                Math.min(Math.max(pageable.getPageSize(), 1), 100),
-                                sort);
+                                Math.min(Math.max(pageable.getPageSize(), 1), 100));
+
+                logHikariStats("Before ID query");
+
+                long idQueryStart = System.nanoTime();
 
                 Page<String> idPage;
 
                 if (SUPER_ADMIN.equals(role)) {
+
                         if (selectedSection == null) {
-                                throw new BadRequestException("Super Admin wajib memilih section: "
-                                                + String.join(", ", SUPPORTED_SECTIONS));
+                                throw new BadRequestException(
+                                                "Super Admin wajib memilih section: "
+                                                                + String.join(", ", SUPPORTED_SECTIONS));
                         }
 
                         Section selected = Section.valueOf(selectedSection);
@@ -350,13 +371,15 @@ public class InspectionService {
                                         safePageable);
 
                 } else if (ADMIN.equals(role)) {
+
                         if (currentUser.getSection() == null) {
                                 throw new BadRequestException("Admin belum memiliki section");
                         }
 
                         Section adminSection = currentUser.getSection();
 
-                        if (selectedSection != null && !adminSection.name().equals(selectedSection)) {
+                        if (selectedSection != null
+                                        && !adminSection.name().equals(selectedSection)) {
                                 return Page.empty(safePageable);
                         }
 
@@ -365,12 +388,11 @@ public class InspectionService {
                                         safePageable);
 
                 } else if (USER.equals(role)) {
-                        if (selectedSection == null) {
 
+                        if (selectedSection == null) {
                                 idPage = inspectionRepository.findIdsBySubmittedBy_Id(
                                                 currentUser.getId(),
                                                 safePageable);
-
                         } else {
                                 Section selected = Section.valueOf(selectedSection);
 
@@ -381,10 +403,23 @@ public class InspectionService {
                         }
 
                 } else if (VISITOR.equals(role)) {
+
                         if (selectedSection == null) {
                                 Page<Inspection> inspectionPage = inspectionRepository.findAll(safePageable);
 
-                                return inspectionPage.map(this::toResponse);
+                                Page<InspectionResponse> result = inspectionPage.map(this::toResponse);
+
+                                System.out.println(
+                                                "[PERF] Visitor findAll + mapping: "
+                                                                + ((System.nanoTime() - idQueryStart) / 1_000_000)
+                                                                + " ms");
+
+                                System.out.println(
+                                                "[PERF] Total request service: "
+                                                                + ((System.nanoTime() - totalStart) / 1_000_000)
+                                                                + " ms");
+
+                                return result;
                         }
 
                         Section selected = Section.valueOf(selectedSection);
@@ -394,23 +429,52 @@ public class InspectionService {
                                         safePageable);
 
                 } else {
-                        throw new UnauthorizedException("Role tidak memiliki izin untuk melihat inspection");
+                        throw new UnauthorizedException(
+                                        "Role tidak memiliki izin untuk melihat inspection");
                 }
 
+                long idQueryEnd = System.nanoTime();
+
+                System.out.println(
+                                "[PERF] Fetch inspection IDs + count: "
+                                                + ((idQueryEnd - idQueryStart) / 1_000_000)
+                                                + " ms");
+
                 if (idPage.isEmpty()) {
+                        System.out.println(
+                                        "[PERF] Total request service: "
+                                                        + ((System.nanoTime() - totalStart) / 1_000_000)
+                                                        + " ms");
+
                         return new PageImpl<>(
                                         List.of(),
                                         safePageable,
                                         idPage.getTotalElements());
                 }
 
-                List<Inspection> inspections = inspectionRepository.findAllWithDetailsByIdIn(idPage.getContent());
+                logHikariStats("Before detail query");
+
+                long detailStart = System.nanoTime();
+
+                List<Inspection> inspections = inspectionRepository.findAllWithDetailsByIdIn(
+                                idPage.getContent());
+
+                long detailEnd = System.nanoTime();
+
+                logHikariStats("After detail query");
+
+                System.out.println(
+                                "[PERF] Fetch inspection details: "
+                                                + ((detailEnd - detailStart) / 1_000_000)
+                                                + " ms");
 
                 Map<String, Inspection> inspectionMap = new HashMap<>();
 
                 for (Inspection inspection : inspections) {
                         inspectionMap.put(inspection.getId(), inspection);
                 }
+
+                long mappingStart = System.nanoTime();
 
                 List<InspectionResponse> responses = idPage.getContent()
                                 .stream()
@@ -419,10 +483,24 @@ public class InspectionService {
                                 .map(this::toResponse)
                                 .toList();
 
-                return new PageImpl<>(
+                long mappingEnd = System.nanoTime();
+
+                System.out.println(
+                                "[PERF] Inspection mapping: "
+                                                + ((mappingEnd - mappingStart) / 1_000_000)
+                                                + " ms");
+
+                Page<InspectionResponse> result = new PageImpl<>(
                                 responses,
                                 safePageable,
                                 idPage.getTotalElements());
+
+                System.out.println(
+                                "[PERF] Total request service: "
+                                                + ((System.nanoTime() - totalStart) / 1_000_000)
+                                                + " ms");
+
+                return result;
         }
 
         @Transactional
@@ -525,9 +603,16 @@ public class InspectionService {
                         throw new UnauthorizedException("User harus login terlebih dahulu");
                 }
 
+                Object principal = authentication.getPrincipal();
+
+                if (principal instanceof User user) {
+                        return user;
+                }
+
                 return userRepository
                                 .findByUsername(authentication.getName())
-                                .orElseThrow(() -> new ResourceNotFoundException("User yang login tidak ditemukan"));
+                                .orElseThrow(() -> new ResourceNotFoundException(
+                                                "User yang login tidak ditemukan"));
         }
 
         private void validateLineAccess(User user, Line line) {
@@ -626,7 +711,7 @@ public class InspectionService {
                         throw new BadRequestException("ID inspection wajib diisi");
                 }
 
-                return inspectionRepository.findById(id.trim())
+                return inspectionRepository.findByIdWithDetails(id.trim())
                                 .orElseThrow(() -> new ResourceNotFoundException("Inspection tidak ditemukan"));
         }
 
@@ -861,8 +946,31 @@ public class InspectionService {
                                 : null);
         }
 
-        private void replaceDefects(Inspection inspection, List<InspectionDefectRequest> defects,
+        private void logHikariStats(String label) {
+                if (!(dataSource instanceof HikariDataSource hikariDataSource)) {
+                        return;
+                }
+
+                HikariPoolMXBean pool = hikariDataSource.getHikariPoolMXBean();
+
+                if (pool == null) {
+                        return;
+                }
+
+                System.out.printf(
+                                "[HIKARI] %s | active=%d | idle=%d | total=%d | waiting=%d%n",
+                                label,
+                                pool.getActiveConnections(),
+                                pool.getIdleConnections(),
+                                pool.getTotalConnections(),
+                                pool.getThreadsAwaitingConnection());
+        }
+
+        private void replaceDefects(
+                        Inspection inspection,
+                        List<InspectionDefectRequest> defects,
                         int inspectedQuantity) {
+
                 inspection.getInspectionDefects().clear();
 
                 if (defects == null || defects.isEmpty()) {
@@ -870,12 +978,15 @@ public class InspectionService {
                 }
 
                 int totalDefect = 0;
+                Set<String> defectTypeIds = new java.util.LinkedHashSet<>();
 
                 for (int i = 0; i < defects.size(); i++) {
 
                         InspectionDefectRequest item = defects.get(i);
+
                         if (item == null) {
-                                throw new BadRequestException("Item defects pada indeks " + i + " tidak boleh null");
+                                throw new BadRequestException(
+                                                "Item defects pada indeks " + i + " tidak boleh null");
                         }
 
                         String defectTypeId = item.getDefectTypeId();
@@ -888,21 +999,13 @@ public class InspectionService {
                         Integer quantity = item.getQuantity();
 
                         if (quantity == null) {
-                                throw new BadRequestException("Field 'quantity' wajib diisi pada defects indeks " + i);
+                                throw new BadRequestException(
+                                                "Field 'quantity' wajib diisi pada defects indeks " + i);
                         }
 
                         if (quantity < 1) {
-                                throw new BadRequestException("Quantity defect minimal 1 pada defects indeks " + i);
-                        }
-
-                        DefectType defectType = defectTypeRepository
-                                        .findById(defectTypeId.trim())
-                                        .orElseThrow(() -> new ResourceNotFoundException(
-                                                        "Defect type dengan ID " + defectTypeId + " tidak ditemukan"));
-
-                        if (!defectType.isActive()) {
                                 throw new BadRequestException(
-                                                "Defect type dengan ID " + defectTypeId + " sudah tidak aktif");
+                                                "Quantity defect minimal 1 pada defects indeks " + i);
                         }
 
                         try {
@@ -912,13 +1015,30 @@ public class InspectionService {
                                                 "Total quantity defect melebihi batas angka yang diperbolehkan");
                         }
 
-                        InspectionDefect defect = new InspectionDefect();
+                        defectTypeIds.add(defectTypeId.trim());
+                }
 
-                        defect.setInspection(inspection);
-                        defect.setDefectType(defectType);
-                        defect.setQuantity(quantity);
+                List<DefectType> foundTypes = defectTypeRepository.findAllById(defectTypeIds);
 
-                        inspection.getInspectionDefects().add(defect);
+                Map<String, DefectType> defectTypeMap = new HashMap<>();
+
+                for (DefectType type : foundTypes) {
+                        defectTypeMap.put(type.getId(), type);
+                }
+
+                for (String defectTypeId : defectTypeIds) {
+
+                        DefectType defectType = defectTypeMap.get(defectTypeId);
+
+                        if (defectType == null) {
+                                throw new ResourceNotFoundException(
+                                                "Defect type dengan ID " + defectTypeId + " tidak ditemukan");
+                        }
+
+                        if (!defectType.isActive()) {
+                                throw new BadRequestException(
+                                                "Defect type dengan ID " + defectTypeId + " sudah tidak aktif");
+                        }
                 }
 
                 if (totalDefect > inspectedQuantity) {
@@ -926,6 +1046,19 @@ public class InspectionService {
                                         "Total quantity defect (" + totalDefect
                                                         + ") tidak boleh melebihi inspectedQuantity ("
                                                         + inspectedQuantity + ")");
+                }
+
+                for (InspectionDefectRequest item : defects) {
+
+                        DefectType defectType = defectTypeMap.get(item.getDefectTypeId().trim());
+
+                        InspectionDefect defect = new InspectionDefect();
+
+                        defect.setInspection(inspection);
+                        defect.setDefectType(defectType);
+                        defect.setQuantity(item.getQuantity());
+
+                        inspection.getInspectionDefects().add(defect);
                 }
         }
 
@@ -940,38 +1073,13 @@ public class InspectionService {
         @Transactional(readOnly = true)
         public List<DefectArea> searchDefectAreas(String keyword) {
                 Section section = getCurrentInspectionSection();
-
-                List<DefectType> defectTypes;
-
-                if (section == null) {
-                        defectTypes = defectTypeRepository.findByActiveTrue();
-                } else {
-                        defectTypes = defectTypeRepository.findBySectionAndActiveTrueOrderByNameAsc(section);
-                }
-
                 String key = normalizeOptional(keyword);
 
-                Map<String, DefectArea> areas = new HashMap<>();
-
-                for (DefectType type : defectTypes) {
-                        DefectArea area = type.getDefectArea();
-
-                        if (area == null || !area.isActive()) {
-                                continue;
-                        }
-
-                        if (key != null && !area.getName().toUpperCase(Locale.ROOT).contains(key)) {
-                                continue;
-                        }
-
-                        areas.putIfAbsent(area.getId(), area);
+                if (key == null) {
+                        return defectTypeRepository.findDistinctActiveDefectAreas(section);
                 }
 
-                return areas.values().stream()
-                                .sorted(Comparator.comparing(
-                                                DefectArea::getName,
-                                                String.CASE_INSENSITIVE_ORDER))
-                                .toList();
+                return defectTypeRepository.findDistinctActiveDefectAreasByKeyword(section, key);
         }
 
         @Transactional(readOnly = true)
@@ -1018,8 +1126,9 @@ public class InspectionService {
                         String keyword) {
 
                 Section section = getCurrentInspectionSection();
-
-                String areaId = normalizeOptional(defectAreaId);
+                String areaId = defectAreaId == null || defectAreaId.isBlank()
+                                ? null
+                                : defectAreaId.trim().toLowerCase(Locale.ROOT);
                 String key = normalizeOptional(keyword);
 
                 List<DefectType> types;

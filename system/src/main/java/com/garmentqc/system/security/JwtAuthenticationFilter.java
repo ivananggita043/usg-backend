@@ -1,3 +1,4 @@
+
 package com.garmentqc.system.security;
 
 import java.io.IOException;
@@ -19,6 +20,7 @@ import lombok.RequiredArgsConstructor;
 @Component
 @RequiredArgsConstructor
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
+
     private final JwtService jwtService;
     private final CustomUserDetailsService userDetailsService;
 
@@ -29,48 +31,71 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             FilterChain filterChain)
             throws ServletException, IOException {
 
-        String authHeader = request.getHeader("Authorization");
-
-        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
-            filterChain.doFilter(request, response);
-            return;
-        }
-
-        String token = authHeader.substring(7);
-        String username;
+        long requestStart = System.nanoTime();
 
         try {
-            username = jwtService.extractUsername(token);
-        } catch (Exception e) {
-            filterChain.doFilter(request, response);
-            return;
-        }
+            String authHeader = request.getHeader("Authorization");
 
-        if (username != null
-                && SecurityContextHolder
-                        .getContext()
-                        .getAuthentication() == null) {
-
-            User user = (User) userDetailsService
-                    .loadUserByUsername(username);
-
-            if (jwtService.isTokenValid(token, user)) {
-
-                UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
-                        user,
-                        null,
-                        user.getAuthorities());
-
-                authentication.setDetails(
-                        new WebAuthenticationDetailsSource()
-                                .buildDetails(request));
-
-                SecurityContextHolder
-                        .getContext()
-                        .setAuthentication(authentication);
+            if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+                filterChain.doFilter(request, response);
+                return;
             }
-        }
 
-        filterChain.doFilter(request, response);
+            String token = authHeader.substring(7);
+            String username;
+
+            try {
+                username = jwtService.extractUsername(token);
+            } catch (Exception e) {
+                filterChain.doFilter(request, response);
+                return;
+            }
+
+            if (username != null
+                    && SecurityContextHolder
+                            .getContext()
+                            .getAuthentication() == null) {
+
+                long authStart = System.nanoTime();
+
+                User user = (User) userDetailsService
+                        .loadUserByUsername(username);
+
+                long authEnd = System.nanoTime();
+
+                System.out.println(
+                        "[JWT] User lookup: "
+                                + ((authEnd - authStart) / 1_000_000)
+                                + " ms");
+
+                if (jwtService.isTokenValid(token, user)) {
+
+                    UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
+                            user,
+                            null,
+                            user.getAuthorities());
+
+                    authentication.setDetails(
+                            new WebAuthenticationDetailsSource()
+                                    .buildDetails(request));
+
+                    SecurityContextHolder
+                            .getContext()
+                            .setAuthentication(authentication);
+                }
+            }
+
+            filterChain.doFilter(request, response);
+
+        } finally {
+            long requestEnd = System.nanoTime();
+
+            System.out.println(
+                    "[REQUEST] " + request.getMethod()
+                            + " " + request.getRequestURI()
+                            + " : "
+                            + ((requestEnd - requestStart) / 1_000_000)
+                            + " ms");
+        }
     }
 }

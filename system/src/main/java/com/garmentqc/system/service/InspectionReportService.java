@@ -552,10 +552,9 @@ public class InspectionReportService {
                                 .atStartOfDay(ZONE_ID)
                                 .toInstant();
 
-                return inspectionRepository
-                                .findByCreatedAtGreaterThanEqualAndCreatedAtLessThan(
-                                                start,
-                                                endExclusive);
+                return inspectionRepository.findReportInspectionsWithDetails(
+                                start,
+                                endExclusive);
         }
 
         private List<InspectionDefect> safeDefects(Inspection inspection) {

@@ -1,3 +1,4 @@
+
 package com.garmentqc.system.security;
 
 import java.nio.charset.StandardCharsets;
@@ -57,16 +58,17 @@ public class JwtService {
 
         public boolean isTokenValid(String token, User user) {
 
-                String username = extractUsername(token);
+                try {
+                        Claims claims = extractAllClaims(token);
 
-                return username.equals(user.getUsername())
-                                && !isTokenExpired(token);
-        }
+                        return claims.getSubject() != null
+                                        && claims.getSubject().equals(user.getUsername())
+                                        && claims.getExpiration() != null
+                                        && claims.getExpiration().after(new Date());
 
-        private boolean isTokenExpired(String token) {
-                return extractAllClaims(token)
-                                .getExpiration()
-                                .before(new Date());
+                } catch (Exception e) {
+                        return false;
+                }
         }
 
         private Claims extractAllClaims(String token) {

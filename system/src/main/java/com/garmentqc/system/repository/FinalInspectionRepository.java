@@ -1,8 +1,12 @@
+
 package com.garmentqc.system.repository;
 
 import java.time.LocalDate;
 import java.util.List;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import com.garmentqc.system.enums.FinalInspectionPurpose;
@@ -10,13 +14,20 @@ import com.garmentqc.system.model.FinalInspection;
 
 public interface FinalInspectionRepository extends JpaRepository<FinalInspection, String> {
 
-    boolean existsByPoNumberAndPurpose(String poNumber, FinalInspectionPurpose purpose);
+        boolean existsByPoNumberAndPurpose(
+                        String poNumber,
+                        FinalInspectionPurpose purpose);
 
-    boolean existsByPoNumberAndPurposeAndIdNot(String poNumber,
-            FinalInspectionPurpose purpose,
-            String id);
+        boolean existsByPoNumberAndPurposeAndIdNot(
+                        String poNumber,
+                        FinalInspectionPurpose purpose,
+                        String id);
 
-    List<FinalInspection> findByInspectionDateBetween(
-            LocalDate startDate,
-            LocalDate endDate);
+        List<FinalInspection> findByInspectionDateBetween(
+                        LocalDate startDate,
+                        LocalDate endDate);
+
+        @Override
+        @EntityGraph(attributePaths = { "buyer" })
+        Page<FinalInspection> findAll(Pageable pageable);
 }

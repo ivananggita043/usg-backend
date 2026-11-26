@@ -4,6 +4,8 @@ package com.garmentqc.system.model;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.hibernate.annotations.BatchSize;
+
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -34,7 +36,7 @@ public class FinalInspectionStyle extends BaseEntity {
 
     @Column(name = "sort_order")
     private Integer sortOrder;
-
     @OneToMany(mappedBy = "finalInspectionStyle", cascade = CascadeType.ALL, orphanRemoval = true)
+    @BatchSize(size = 50)
     private List<FinalInspectionStyleColor> colors = new ArrayList<>();
 }

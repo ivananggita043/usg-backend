@@ -1,6 +1,8 @@
 
 package com.garmentqc.system.model;
 
+import org.hibernate.annotations.BatchSize;
+
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
@@ -19,6 +21,7 @@ import lombok.Setter;
 @Getter
 @Setter
 @NoArgsConstructor
+@BatchSize(size = 50)
 public class StyleColor extends BaseEntity {
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)

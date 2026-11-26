@@ -1,6 +1,8 @@
 
 package com.garmentqc.system.model;
 
+import org.hibernate.annotations.BatchSize;
+
 import com.garmentqc.system.enums.DefectCategory;
 import com.garmentqc.system.enums.Section;
 
@@ -21,6 +23,7 @@ import lombok.Setter;
 @Getter
 @Setter
 @NoArgsConstructor
+@BatchSize(size = 50)
 public class DefectType extends BaseEntity {
 
     @Enumerated(EnumType.STRING)

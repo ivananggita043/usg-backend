@@ -33,11 +33,15 @@ public class AuthService {
 
         public LoginResponse login(LoginRequest request) {
 
+                User user;
+
                 try {
-                        authenticationManager.authenticate(
+                        var authentication = authenticationManager.authenticate(
                                         new UsernamePasswordAuthenticationToken(
                                                         request.getUsername(),
                                                         request.getPassword()));
+
+                        user = (User) authentication.getPrincipal();
 
                 } catch (BadCredentialsException ex) {
                         throw new BadCredentialsException(
@@ -51,16 +55,6 @@ public class AuthService {
                 } catch (AuthenticationException ex) {
                         throw new BadCredentialsException(
                                         "Login gagal. Periksa username dan password.");
-                }
-
-                User user = userRepository
-                                .findByUsername(request.getUsername())
-                                .orElseThrow(() -> new BadCredentialsException(
-                                                "Username atau password salah"));
-
-                if (!user.isActive()) {
-                        throw new DisabledException(
-                                        "Akun tidak aktif. Hubungi administrator.");
                 }
 
                 String token = jwtService.generateToken(user);
@@ -88,4 +82,5 @@ public class AuthService {
                                 .lines(lines)
                                 .build();
         }
+
 }

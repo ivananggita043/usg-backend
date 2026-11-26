@@ -95,7 +95,7 @@ public class SewingReportExcelService {
         Instant end = date.plusDays(1).atStartOfDay(ZONE_ID).toInstant();
 
         List<Inspection> inspections = inspectionRepository
-                .findByCreatedAtGreaterThanEqualAndCreatedAtLessThan(start, end)
+                .findReportInspectionsWithDetails(start, end)
                 .stream()
                 .filter(inspection -> inspection.getLine() != null)
                 .filter(inspection -> inspection.getLine().getSection() != null)
@@ -109,8 +109,7 @@ public class SewingReportExcelService {
                                         Comparator.nullsLast(NATURAL_ORDER))
                                 .thenComparing(
                                         Inspection::getCreatedAt,
-                                        Comparator.nullsLast(
-                                                Comparator.naturalOrder())))
+                                        Comparator.nullsLast(Comparator.naturalOrder())))
                 .collect(Collectors.toList());
 
         List<Line> sewingLines = lineRepository.findAll().stream()

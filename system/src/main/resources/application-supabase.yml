@@ -1,7 +1,7 @@
 
 spring:
   datasource:
-    url: jdbc:postgresql://aws-0-ap-northeast-2.pooler.supabase.com:5432/postgres?sslmode=require
+    url: jdbc:postgresql://aws-1-ap-southeast-1.pooler.supabase.com:5432/postgres?sslmode=require
     username: ${SUPABASE_DB_USERNAME}
     password: ${SUPABASE_DB_PASSWORD}
     driver-class-name: org.postgresql.Driver
@@ -9,7 +9,12 @@ spring:
     hikari:
       pool-name: GarmentQCPool
       maximum-pool-size: 3
-      minimum-idle: 0
+      minimum-idle: 1
       connection-timeout: 30000
       idle-timeout: 60000
       max-lifetime: 300000
+
+  jpa:
+    properties:
+      hibernate:
+        default_batch_fetch_size: 50

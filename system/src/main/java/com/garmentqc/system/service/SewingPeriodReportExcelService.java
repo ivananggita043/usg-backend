@@ -178,8 +178,7 @@ public class SewingPeriodReportExcelService {
                                 .toInstant();
 
                 List<Inspection> inspections = inspectionRepository
-                                .findByCreatedAtGreaterThanEqualAndCreatedAtLessThan(
-                                                start, endExclusive)
+                                .findReportInspectionsWithDetails(start, endExclusive)
                                 .stream()
                                 .filter(i -> i.getLine() != null)
                                 .filter(i -> i.getLine().getSection() != null)

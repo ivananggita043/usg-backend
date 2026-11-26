@@ -1,6 +1,8 @@
 
 package com.garmentqc.system.model;
 
+import org.hibernate.annotations.BatchSize;
+
 import com.garmentqc.system.enums.AccessoryCategory;
 
 import jakarta.persistence.Column;
@@ -21,6 +23,7 @@ import lombok.Setter;
 @Getter
 @Setter
 @NoArgsConstructor
+@BatchSize(size = 50)
 public class Accessory extends BaseEntity {
 
     @Enumerated(EnumType.STRING)

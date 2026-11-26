@@ -409,22 +409,29 @@ public class UserService {
                 if (authentication == null
                                 || !authentication.isAuthenticated()
                                 || authentication instanceof AnonymousAuthenticationToken) {
-                        throw new UnauthorizedException("User belum terautentikasi. Silakan login kembali.");
+                        throw new UnauthorizedException(
+                                        "User belum terautentikasi. Silakan login kembali.");
                 }
 
-                String username;
                 Object principal = authentication.getPrincipal();
 
                 if (principal instanceof User user) {
-                        username = user.getUsername();
-                } else if (principal instanceof UserDetails userDetails) {
+                        return user;
+                }
+
+                String username;
+
+                if (principal instanceof UserDetails userDetails) {
                         username = userDetails.getUsername();
                 } else {
                         username = authentication.getName();
                 }
 
-                if (username == null || username.isBlank() || "anonymousUser".equals(username)) {
-                        throw new UnauthorizedException("User belum terautentikasi. Silakan login kembali.");
+                if (username == null
+                                || username.isBlank()
+                                || "anonymousUser".equals(username)) {
+                        throw new UnauthorizedException(
+                                        "User belum terautentikasi. Silakan login kembali.");
                 }
 
                 return userRepository.findByUsername(username)

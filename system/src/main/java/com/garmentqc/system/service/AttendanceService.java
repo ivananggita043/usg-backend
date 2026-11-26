@@ -29,7 +29,6 @@ import com.garmentqc.system.model.UserLine;
 import com.garmentqc.system.repository.AttendanceRepository;
 import com.garmentqc.system.repository.OperatorLineAssignmentRepository;
 import com.garmentqc.system.repository.UserLineRepository;
-import com.garmentqc.system.repository.UserRepository;
 
 import lombok.RequiredArgsConstructor;
 
@@ -40,7 +39,6 @@ public class AttendanceService {
         private static final ZoneId ZONE = ZoneId.of("Asia/Jakarta");
 
         private final AttendanceRepository attendanceRepository;
-        private final UserRepository userRepository;
         private final OperatorLineAssignmentRepository assignmentRepository;
         private final UserLineRepository userLineRepository;
 
@@ -56,26 +54,27 @@ public class AttendanceService {
         @Value("${app.attendance.max-gps-accuracy-meter:50}")
         private double maxGpsAccuracy;
 
-        private User getUser(String username) {
-                return userRepository.findByUsername(username)
-                                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
-        }
-
-        private User validateAttendanceUser(String username) {
-                User user = getUser(username);
+        private User validateAttendanceUser(User user) {
+                if (user == null) {
+                        throw new UnauthorizedException("User belum terautentikasi");
+                }
 
                 if (!user.isActive()) {
                         throw new UnauthorizedException("User tidak aktif");
                 }
 
                 if (user.getRole() != Role.USER) {
-                        throw new UnauthorizedException("Hanya user QC yang dapat melakukan absensi");
+                        throw new UnauthorizedException(
+                                        "Hanya user QC yang dapat melakukan absensi");
                 }
 
                 return user;
         }
 
-        private void validateLocation(double latitude, double longitude, double accuracy) {
+        private void validateLocation(
+                        double latitude,
+                        double longitude,
+                        double accuracy) {
 
                 if (!Double.isFinite(latitude)
                                 || !Double.isFinite(longitude)
@@ -92,7 +91,8 @@ public class AttendanceService {
                 }
 
                 if (accuracy <= 0 || accuracy > maxGpsAccuracy) {
-                        throw new BadRequestException("Akurasi GPS tidak memenuhi persyaratan");
+                        throw new BadRequestException(
+                                        "Akurasi GPS tidak memenuhi persyaratan");
                 }
 
                 double distance = calculateDistance(
@@ -102,7 +102,9 @@ public class AttendanceService {
                                 officeLongitude);
 
                 if (distance > radiusMeter) {
-                        throw new BadRequestException("Lokasi di luar radius absensi " + (int) radiusMeter + " meter");
+                        throw new BadRequestException(
+                                        "Lokasi di luar radius absensi "
+                                                        + (int) radiusMeter + " meter");
                 }
         }
 
@@ -111,11 +113,11 @@ public class AttendanceService {
                         return 60;
                 }
 
-                if (workingMinutes >= 510) {
-                        return 30;
-                }
+                // if (workingMinutes >= 510) {
+                //         return 30;
+                // }
 
-                return 0;
+                return 30;
         }
 
         private double calculateDistance(
@@ -161,8 +163,8 @@ public class AttendanceService {
         }
 
         @Transactional
-        public AttendanceResponse checkIn(String username, CheckInRequest request) {
-                User user = validateAttendanceUser(username);
+        public AttendanceResponse checkIn(User user, CheckInRequest request) {
+                validateAttendanceUser(user);
 
                 LocalDate today = LocalDate.now(ZONE);
 
@@ -173,7 +175,8 @@ public class AttendanceService {
 
                 if (attendanceRepository.existsByUser_IdAndAttendanceDate(
                                 user.getId(), today)) {
-                        throw new BadRequestException("Anda sudah melakukan absensi hari ini");
+                        throw new BadRequestException(
+                                        "Anda sudah melakukan absensi hari ini");
                 }
 
                 List<UserLine> userLines = userLineRepository.findByUser(user);
@@ -190,7 +193,8 @@ public class AttendanceService {
                 }
 
                 if (assignedLine.getSection() != user.getSection()) {
-                        throw new BadRequestException("Section line tidak sesuai dengan section QC");
+                        throw new BadRequestException(
+                                        "Section line tidak sesuai dengan section QC");
                 }
 
                 Instant now = Instant.now();
@@ -222,8 +226,8 @@ public class AttendanceService {
         }
 
         @Transactional
-        public AttendanceResponse checkOut(String username, CheckOutRequest request) {
-                User user = validateAttendanceUser(username);
+        public AttendanceResponse checkOut(User user, CheckOutRequest request) {
+                validateAttendanceUser(user);
 
                 LocalDate today = LocalDate.now(ZONE);
 
@@ -233,7 +237,8 @@ public class AttendanceService {
                                                 "Anda belum melakukan check-in hari ini."));
 
                 if (attendance.getCheckOutAt() != null) {
-                        throw new BadRequestException("Anda sudah melakukan check-out hari ini.");
+                        throw new BadRequestException(
+                                        "Anda sudah melakukan check-out hari ini.");
                 }
 
                 validateLocation(
@@ -247,6 +252,7 @@ public class AttendanceService {
                 if (checkIn == null || !now.isAfter(checkIn)) {
                         throw new BadRequestException("Waktu check-out tidak valid.");
                 }
+
                 long workingMinutes = ChronoUnit.MINUTES.between(
                                 checkIn,
                                 now);
@@ -260,7 +266,8 @@ public class AttendanceService {
                                 .findByAttendance_IdAndEndAtIsNull(attendance.getId())
                                 .ifPresent(assignment -> {
                                         if (!now.isAfter(assignment.getStartAt())) {
-                                                throw new BadRequestException("Waktu check-out assignment tidak valid");
+                                                throw new BadRequestException(
+                                                                "Waktu check-out assignment tidak valid");
                                         }
 
                                         assignment.setEndAt(now);
@@ -282,8 +289,8 @@ public class AttendanceService {
         }
 
         @Transactional(readOnly = true)
-        public AttendanceResponse getToday(String username) {
-                User user = validateAttendanceUser(username);
+        public AttendanceResponse getToday(User user) {
+                validateAttendanceUser(user);
 
                 LocalDate today = LocalDate.now(ZONE);
 
@@ -296,9 +303,8 @@ public class AttendanceService {
         }
 
         @Transactional(readOnly = true)
-        public List<AttendanceResponse> getAll(String username) {
-
-                User user = getActiveUser(username);
+        public List<AttendanceResponse> getAll(User user) {
+                validateAttendanceUser(user);
 
                 return attendanceRepository.findByUser_Id(user.getId())
                                 .stream()
@@ -307,8 +313,11 @@ public class AttendanceService {
         }
 
         @Transactional(readOnly = true)
-        public Page<AttendanceResponse> getAllPaginated(String username, Pageable pageable) {
-                User user = getActiveUser(username);
+        public Page<AttendanceResponse> getAllPaginated(
+                        User user,
+                        Pageable pageable) {
+
+                validateAttendanceUser(user);
 
                 return attendanceRepository
                                 .findAttendancesByUserId(user.getId(), pageable)
@@ -316,8 +325,8 @@ public class AttendanceService {
         }
 
         @Transactional(readOnly = true)
-        public AttendanceResponse getById(String username, String attendanceId) {
-                User user = getActiveUser(username);
+        public AttendanceResponse getById(User user, String attendanceId) {
+                validateAttendanceUser(user);
 
                 Attendance attendance = attendanceRepository.findById(attendanceId)
                                 .orElseThrow(() -> new ResourceNotFoundException(
@@ -325,29 +334,10 @@ public class AttendanceService {
 
                 if (attendance.getUser() == null
                                 || !attendance.getUser().getId().equals(user.getId())) {
-
                         throw new UnauthorizedException(
                                         "Anda hanya dapat melihat attendance milik sendiri");
                 }
 
                 return toResponse(attendance);
-        }
-
-        private User getActiveUser(String username) {
-
-                User user = userRepository.findByUsername(username)
-                                .orElseThrow(() -> new ResourceNotFoundException(
-                                                "User tidak ditemukan"));
-
-                if (!user.isActive()) {
-                        throw new UnauthorizedException("User tidak aktif");
-                }
-
-                if (user.getRole() != Role.USER) {
-                        throw new UnauthorizedException(
-                                        "Akses hanya untuk USER");
-                }
-
-                return user;
         }
 }

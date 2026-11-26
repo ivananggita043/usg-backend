@@ -4,6 +4,8 @@ import java.util.List;
 
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 import com.garmentqc.system.enums.DefectCategory;
 import com.garmentqc.system.enums.Section;
@@ -69,4 +71,30 @@ public interface DefectTypeRepository extends JpaRepository<DefectType, String> 
         @EntityGraph(attributePaths = "defectArea")
         List<DefectType> findBySectionAndDefectAreaAndActiveTrueAndNameContainingIgnoreCaseOrderByNameAsc(
                         Section section, DefectArea defectArea, String name);
+
+        @Query("""
+                        SELECT DISTINCT da
+                        FROM DefectType dt
+                        JOIN dt.defectArea da
+                        WHERE dt.active = true
+                          AND da.active = true
+                          AND (:section IS NULL OR dt.section = :section)
+                        ORDER BY da.name ASC
+                        """)
+        List<DefectArea> findDistinctActiveDefectAreas(
+                        @Param("section") Section section);
+
+        @Query("""
+                        SELECT DISTINCT da
+                        FROM DefectType dt
+                        JOIN dt.defectArea da
+                        WHERE dt.active = true
+                          AND da.active = true
+                          AND (:section IS NULL OR dt.section = :section)
+                          AND UPPER(da.name) LIKE CONCAT('%', :keyword, '%')
+                        ORDER BY da.name ASC
+                        """)
+        List<DefectArea> findDistinctActiveDefectAreasByKeyword(
+                        @Param("section") Section section,
+                        @Param("keyword") String keyword);
 }
